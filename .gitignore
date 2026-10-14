@@ -1,0 +1,38 @@
+# Flutter and Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+build/
+coverage/
+
+# Native build output
+android/.gradle/
+android/local.properties
+android/key.properties
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/ephemeral/
+
+# IDE and operating-system files
+.idea/
+.vscode/
+.DS_Store
+
+# Local secrets and credentials
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+*.p8
+
+# Local backups
+*.bak
+*.backup
+*.orig
