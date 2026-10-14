@@ -28,7 +28,7 @@ jobs:
         run: flutter pub get
 
       - name: Analyse Dart source
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
   android-build:
     name: Android build

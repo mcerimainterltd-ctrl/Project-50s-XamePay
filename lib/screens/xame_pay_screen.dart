@@ -4,7 +4,6 @@ import 'dart:async';
 // XamePay — go_router-aware wallet for XamePage 2.1  (Build 264+)
 
 import 'dart:convert';
-import 'dart:ui' as ui;
 import 'package:share_plus/share_plus.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:path_provider/path_provider.dart';
@@ -1320,7 +1319,6 @@ class _XamePayScreenState extends State<XamePayScreen>
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: StatefulBuilder(builder: (ctx, ss) {
-          String? error;
           return Padding(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
