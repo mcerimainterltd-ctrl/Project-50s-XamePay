@@ -108,7 +108,8 @@ jobs:
           if dependency not in text:
               match = re.search(r"dependencies\s*\{", text)
               if not match:
-                  raise SystemExit("Could not find dependencies block; refusing to guess.")
+                  text += "\ndependencies {\n}\n"
+                  match = re.search(r"dependencies\s*\{", text)
               start = match.end()
               depth = 1
               i = start
