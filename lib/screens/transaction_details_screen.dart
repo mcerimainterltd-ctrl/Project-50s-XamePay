@@ -8,10 +8,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-const _kTeal  = Color(0xFF00B0A0);
-const _kBg    = Color(0xFF0D1520);
-const _kCard  = Color(0xFF111E2E);
-const _kMuted = Color(0xFF7A9BB5);
+const _kTeal  = Color(0xFF0FA66F);
+const _kBg    = Color(0xFF04231B);
+const _kCard  = Color(0xFF0A3327);
+const _kMuted = Color(0xFF8FB5A5);
 
 /// Shown immediately after a successful bank transfer — mirrors the
 /// OPay-style transaction details layout: status timeline, recipient info,

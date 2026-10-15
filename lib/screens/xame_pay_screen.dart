@@ -20,10 +20,15 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ── COLOURS ───────────────────────────────────────────────────────────────────
-const _kTeal  = Color(0xFF00B0A0);
-const _kBg    = Color(0xFF0D1520);
-const _kCard  = Color(0xFF111E2E);
-const _kMuted = Color(0xFF7A9BB5);
+// XamePay International palette: emerald and gold.
+// _kTeal keeps its old name so existing references still compile;
+// it is now the emerald accent.
+const _kTeal  = Color(0xFF0FA66F);
+const _kBg    = Color(0xFF04231B);
+const _kCard  = Color(0xFF0A3327);
+const _kMuted = Color(0xFF8FB5A5);
+const _kGold     = Color(0xFFE6C978);
+const _kGoldDeep = Color(0xFFC9A24A);
 
 // ── MODELS ────────────────────────────────────────────────────────────────────
 
@@ -681,9 +686,13 @@ class _XamePayScreenState extends State<XamePayScreen>
                     fontSize: 17, fontWeight: FontWeight.w700)),
           ]),
           centerTitle: true,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(height: 1, color: _kGold.withAlpha(110)),
+          ),
           actions: [
             IconButton(
-                icon: const Icon(Icons.tune, color: _kTeal),
+                icon: const Icon(Icons.tune, color: _kGold),
                 onPressed: _showSettings),
           ],
         ),
@@ -730,19 +739,37 @@ class _XamePayScreenState extends State<XamePayScreen>
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(24),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-            colors: [Color(0xFF00B0A0), Color(0xFF008A7D)],
+            colors: [Color(0xFF087F5B), Color(0xFF064E3B), Color(0xFF03362A)],
             begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _kGold.withAlpha(110), width: 1),
+        boxShadow: [
+          BoxShadow(
+              color: _kGoldDeep.withAlpha(60),
+              blurRadius: 24, offset: const Offset(0, 8)),
+        ],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      child: Stack(clipBehavior: Clip.none, children: [
+        Positioned(
+          left: -24, top: -24, right: -24, bottom: -24,
+          child: IgnorePointer(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: CustomPaint(painter: _GlobePainter()),
+            ),
+          ),
+        ),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text('Wallet Balance',
-                style: TextStyle(color: Color(0xCCFFFFFF),
-                    fontSize: 12, letterSpacing: 1)),
+                style: TextStyle(color: _kGold,
+                    fontSize: 12, letterSpacing: 1.6,
+                    fontWeight: FontWeight.w600)),
             GestureDetector(
               onTap: () async {
                 setState(() => _balanceHidden = !_balanceHidden);
@@ -769,7 +796,7 @@ class _XamePayScreenState extends State<XamePayScreen>
               child: Text(conv, style: const TextStyle(
                   color: Color(0xB3FFFFFF), fontSize: 13))),
         Text('XamePay • $_displayCurrency',
-            style: const TextStyle(color: Color(0xB3FFFFFF), fontSize: 12)),
+            style: const TextStyle(color: _kGold, fontSize: 12)),
         const SizedBox(height: 20),
         Row(children: [
           _cBtn('+ Add Money', () => _showAddMoney()),
@@ -778,6 +805,7 @@ class _XamePayScreenState extends State<XamePayScreen>
           const SizedBox(width: 8),
           _cBtn('⋯ More', () => _tab.animateTo(4)),
         ]),
+      ]),
       ]),
     );
   }
@@ -790,7 +818,7 @@ class _XamePayScreenState extends State<XamePayScreen>
         decoration: BoxDecoration(
           color: const Color(0x33FFFFFF),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0x4DFFFFFF)),
+          border: Border.all(color: const Color(0x80E6C978)),
         ),
         child: Text(l, textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white,
@@ -842,8 +870,8 @@ class _XamePayScreenState extends State<XamePayScreen>
       controller: _tab,
       isScrollable: true,
       tabAlignment: TabAlignment.start,
-      indicatorColor: _kTeal,
-      labelColor: _kTeal,
+      indicatorColor: _kGold,
+      labelColor: _kGold,
       unselectedLabelColor: _kMuted,
       labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
       tabs: const [
@@ -898,7 +926,7 @@ class _XamePayScreenState extends State<XamePayScreen>
                 child: Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                      color: const Color(0xFF1E2D3D),
+                      color: const Color(0xFF0E4434),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: Colors.white24)),
                   child: Row(children: [
@@ -948,7 +976,7 @@ class _XamePayScreenState extends State<XamePayScreen>
               decoration: InputDecoration(
                 labelText: "Amount ($_currency)",
                 labelStyle: const TextStyle(color: _kMuted),
-                filled: true, fillColor: const Color(0xFF1E2D3D),
+                filled: true, fillColor: const Color(0xFF0E4434),
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(color: Colors.white24)),
@@ -1021,12 +1049,12 @@ class _XamePayScreenState extends State<XamePayScreen>
               const SizedBox(height: 20),
               DropdownButtonFormField<String>(
                 value: squadCurrency,
-                dropdownColor: const Color(0xFF1E2D3D),
+                dropdownColor: const Color(0xFF0E4434),
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   labelText: "Currency",
                   labelStyle: const TextStyle(color: _kMuted),
-                  filled: true, fillColor: const Color(0xFF1E2D3D),
+                  filled: true, fillColor: const Color(0xFF0E4434),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: Colors.white24)),
@@ -1045,7 +1073,7 @@ class _XamePayScreenState extends State<XamePayScreen>
                 decoration: InputDecoration(
                   labelText: "Amount ($squadCurrency)",
                   labelStyle: const TextStyle(color: _kMuted),
-                  filled: true, fillColor: const Color(0xFF1E2D3D),
+                  filled: true, fillColor: const Color(0xFF0E4434),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: Colors.white24)),
@@ -1209,7 +1237,7 @@ class _XamePayScreenState extends State<XamePayScreen>
                   decoration: InputDecoration(
                     labelText: "Amount ($_currency)",
                     labelStyle: const TextStyle(color: _kMuted),
-                    filled: true, fillColor: const Color(0xFF1E2D3D),
+                    filled: true, fillColor: const Color(0xFF0E4434),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
                         borderSide: const BorderSide(color: Colors.white24)),
                     enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
@@ -1264,7 +1292,7 @@ class _XamePayScreenState extends State<XamePayScreen>
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: const Color(0xFF1E2D3D),
+            decoration: BoxDecoration(color: const Color(0xFF0E4434),
                 borderRadius: BorderRadius.circular(16)),
             child: Column(children: [
               Text(code, style: const TextStyle(color: _kTeal,
@@ -1314,7 +1342,7 @@ class _XamePayScreenState extends State<XamePayScreen>
     final pinCtrl    = TextEditingController();
     final confirmCtrl = TextEditingController();
     showModalBottomSheet(
-      context: context, isScrollControlled: true, backgroundColor: const Color(0xFF13131A),
+      context: context, isScrollControlled: true, backgroundColor: const Color(0xFF062B21),
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
@@ -1340,7 +1368,7 @@ class _XamePayScreenState extends State<XamePayScreen>
                   labelStyle: TextStyle(color: Colors.white54),
                   counterText: '',
                   enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00E5FF))),
+                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE6C978))),
                 ),
               ),
               const SizedBox(height: 16),
@@ -1355,14 +1383,14 @@ class _XamePayScreenState extends State<XamePayScreen>
                   labelStyle: TextStyle(color: Colors.white54),
                   counterText: '',
                   enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00E5FF))),
+                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE6C978))),
                 ),
               ),
               const SizedBox(height: 24),
               SizedBox(width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00E5FF),
+                    backgroundColor: const Color(0xFFE6C978),
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -1532,12 +1560,12 @@ class _XamePayScreenState extends State<XamePayScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E1E2E),
+                  color: const Color(0xFF0E4434),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: Colors.white12),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.lock_outline_rounded, color: Color(0xFF00E5FF), size: 20),
+                  const Icon(Icons.lock_outline_rounded, color: Color(0xFFE6C978), size: 20),
                   const SizedBox(width: 12),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Text('Transaction PIN', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
@@ -1546,7 +1574,7 @@ class _XamePayScreenState extends State<XamePayScreen>
                   ])),
                   Switch(
                     value: _pinEnabled,
-                    activeColor: const Color(0xFF00E5FF),
+                    activeColor: const Color(0xFFE6C978),
                     onChanged: (val) async {
                       if (val) {
                         Navigator.pop(ctx);
@@ -1555,10 +1583,10 @@ class _XamePayScreenState extends State<XamePayScreen>
                         // Require current PIN to disable
                         final ctrl = TextEditingController();
                         final pin = await showDialog<String>(context: ctx, builder: (_) => AlertDialog(
-                          backgroundColor: const Color(0xFF13131A),
+                          backgroundColor: const Color(0xFF062B21),
                           title: const Text('Enter Current PIN', style: TextStyle(color: Colors.white)),
                           content: TextField(controller: ctrl, keyboardType: TextInputType.number, obscureText: true, maxLength: 6, style: const TextStyle(color: Colors.white)),
-                          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Colors.white38))), ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00E5FF), foregroundColor: Colors.black), child: const Text('Confirm'))],
+                          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Colors.white38))), ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE6C978), foregroundColor: Colors.black), child: const Text('Confirm'))],
                         ));
                         if (pin == null) return;
                         final r = await http.post(
@@ -1730,7 +1758,7 @@ class _BankTransferSheetState extends State<_BankTransferSheet> {
       final formData = await showModalBottomSheet<Map<String, String>>(
         context: context,
         isScrollControlled: true,
-        backgroundColor: const Color(0xFF1A2A2A),
+        backgroundColor: const Color(0xFF0A3327),
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
         builder: (_) => const _SquadFormSheet(),
       );
@@ -1845,7 +1873,7 @@ class _BankTransferSheetState extends State<_BankTransferSheet> {
                     errorWidget: (_, __, ___) => Container(
                       width: 48, height: 48,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1B3A5C),
+                        color: const Color(0xFF0F5A43),
                         borderRadius: BorderRadius.circular(10)),
                       child: Center(child: Text(
                           ((_account!["bank_name"] ?? "B") as String).isNotEmpty
@@ -1925,7 +1953,7 @@ class _BankTransferSheetState extends State<_BankTransferSheet> {
               decoration: InputDecoration(
                 hintText: "11-digit BVN",
                 hintStyle: const TextStyle(color: _kMuted),
-                filled: true, fillColor: const Color(0xFF1E2D3D),
+                filled: true, fillColor: const Color(0xFF0E4434),
                 counterStyle: const TextStyle(color: _kMuted),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(color: Colors.white24)),
@@ -1973,7 +2001,7 @@ class _BankTransferSheetState extends State<_BankTransferSheet> {
     padding: const EdgeInsets.only(bottom: 12),
     child: Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: const Color(0xFF1E2D3D),
+      decoration: BoxDecoration(color: const Color(0xFF0E4434),
           borderRadius: BorderRadius.circular(12)),
       child: Row(children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -2035,7 +2063,7 @@ class _RequestMoneySheetState extends State<_RequestMoneySheet> {
             dropdownColor: _kCard,
             style: const TextStyle(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
-              filled: true, fillColor: const Color(0xFF1E2D3D),
+              filled: true, fillColor: const Color(0xFF0E4434),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Colors.white24)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
@@ -2064,7 +2092,7 @@ class _RequestMoneySheetState extends State<_RequestMoneySheet> {
               hintStyle: const TextStyle(color: _kMuted),
               prefixText: "${widget.currency} ",
               prefixStyle: const TextStyle(color: _kTeal, fontWeight: FontWeight.w700),
-              filled: true, fillColor: const Color(0xFF1E2D3D),
+              filled: true, fillColor: const Color(0xFF0E4434),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Colors.white24)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
@@ -2083,7 +2111,7 @@ class _RequestMoneySheetState extends State<_RequestMoneySheet> {
             decoration: InputDecoration(
               hintText: "What is this for?",
               hintStyle: const TextStyle(color: _kMuted),
-              filled: true, fillColor: const Color(0xFF1E2D3D),
+              filled: true, fillColor: const Color(0xFF0E4434),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Colors.white24)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
@@ -2378,7 +2406,7 @@ class _SendTabState extends State<_SendTab> {
     return showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF13131A),
+        backgroundColor: const Color(0xFF062B21),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Enter Transaction PIN',
             style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
@@ -2393,14 +2421,14 @@ class _SendTabState extends State<_SendTab> {
             hintStyle: TextStyle(color: Colors.white38),
             counterText: '',
             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00E5FF))),
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE6C978))),
           ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel', style: TextStyle(color: Colors.white38))),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, ctrl.text.trim()),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00E5FF), foregroundColor: Colors.black),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE6C978), foregroundColor: Colors.black),
             child: const Text('Confirm'),
           ),
         ],
@@ -2678,7 +2706,7 @@ class _SendTabState extends State<_SendTab> {
           ...(_beneficiaries.map((b) => Container(
             margin: const EdgeInsets.only(bottom: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A2E),
+              color: const Color(0xFF0A3327),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white10)),
             child: ListTile(
@@ -4491,11 +4519,11 @@ class _MoreTabState extends State<_MoreTab> with SingleTickerProviderStateMixin 
   Widget build(BuildContext context) {
     return Column(children: [
       Container(
-        color: const Color(0xFF1A1A2E),
+        color: const Color(0xFF0A3327),
         child: TabBar(
           controller: _innerTab,
-          indicatorColor: _kTeal,
-          labelColor: _kTeal,
+          indicatorColor: _kGold,
+          labelColor: _kGold,
           unselectedLabelColor: _kMuted,
           labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
           tabs: const [
@@ -4874,7 +4902,7 @@ class _HistoryTabState extends State<_HistoryTab> {
           SizedBox(width: double.infinity,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00B0A0),
+                  backgroundColor: const Color(0xFF0FA66F),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -4916,7 +4944,7 @@ class _HistoryTabState extends State<_HistoryTab> {
                 await file.writeAsBytes(image);
                 await Process.run('am', ['broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file://${file.path}']);
                 if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Receipt saved to Gallery'), backgroundColor: Color(0xFF00B0A0)));
+                  const SnackBar(content: Text('Receipt saved to Gallery'), backgroundColor: Color(0xFF0FA66F)));
               },
               icon: const Icon(Icons.download_outlined, size: 18),
               label: const Text('Save to Gallery', style: TextStyle(fontSize: 13)))),
@@ -5154,7 +5182,7 @@ class _RewardsTabState extends State<_RewardsTab> {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF00B0A0), Color(0xFF007A72)],
+                colors: [Color(0xFF0FA66F), Color(0xFF087F5B)],
                 begin: Alignment.topLeft, end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(20),
             ),
@@ -5410,7 +5438,7 @@ class _SquadFormSheetState extends State<_SquadFormSheet> {
         SizedBox(width: double.infinity,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00B0A0),
+              backgroundColor: const Color(0xFF0FA66F),
               padding: const EdgeInsets.symmetric(vertical: 14)),
             onPressed: () {
               if (_firstNameCtrl.text.trim().isEmpty) return;
@@ -5452,7 +5480,7 @@ class _SquadFormSheetState extends State<_SquadFormSheet> {
         labelStyle: const TextStyle(color: Colors.white54),
         counterStyle: const TextStyle(color: Colors.white38),
         enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-        focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF00B0A0)))),
+        focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF0FA66F)))),
     );
 
   Widget _genderBtn(String value, String label) => GestureDetector(
@@ -5460,11 +5488,46 @@ class _SquadFormSheetState extends State<_SquadFormSheet> {
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       decoration: BoxDecoration(
-        color: _gender == value ? const Color(0xFF00B0A0) : Colors.transparent,
-        border: Border.all(color: _gender == value ? const Color(0xFF00B0A0) : Colors.white24),
+        color: _gender == value ? const Color(0xFF0FA66F) : Colors.transparent,
+        border: Border.all(color: _gender == value ? const Color(0xFF0FA66F) : Colors.white24),
         borderRadius: BorderRadius.circular(20)),
       child: Text(label, style: TextStyle(
         color: _gender == value ? Colors.black : Colors.white70,
         fontWeight: FontWeight.w600)),
     ));
+}
+
+// ── INTERNATIONAL MOTIF ───────────────────────────────────────────────────────
+// Faint gold globe (meridians and parallels) drawn behind the balance card.
+class _GlobePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = size.height * 0.9;
+    final c = Offset(size.width - r * 0.3, size.height * 0.45);
+    final line = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = const Color(0x2EE6C978);
+    final glow = Paint()
+      ..shader = const RadialGradient(
+        colors: [Color(0x33E6C978), Color(0x00E6C978)],
+      ).createShader(Rect.fromCircle(center: c, radius: r));
+    canvas.drawCircle(c, r, glow);
+    canvas.save();
+    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: c, radius: r)));
+    canvas.drawCircle(c, r, line);
+    canvas.drawCircle(c, r * 0.7, line);
+    for (final f in const [0.3, 0.6, 0.9]) {
+      canvas.drawOval(
+          Rect.fromCenter(center: c, width: 2 * r * f, height: 2 * r), line);
+    }
+    for (final f in const [-0.5, 0.0, 0.5]) {
+      final y = c.dy + r * f;
+      canvas.drawLine(Offset(c.dx - r, y), Offset(c.dx + r, y), line);
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
