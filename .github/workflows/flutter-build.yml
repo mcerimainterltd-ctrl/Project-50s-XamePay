@@ -183,10 +183,10 @@ jobs:
                   block = "\n".join([
                       'signingConfigs {',
                       '        create("release") {',
-                      '            val keyProps = java.util.Properties()',
+                      '            val keyProps = Properties()',
                       '            val keyPropsFile = rootProject.file("key.properties")',
                       '            if (keyPropsFile.exists()) {',
-                      '                keyProps.load(java.io.FileInputStream(keyPropsFile))',
+                      '                keyProps.load(FileInputStream(keyPropsFile))',
                       '                keyAlias = keyProps["keyAlias"] as String',
                       '                keyPassword = keyProps["keyPassword"] as String',
                       '                storeFile = file(keyProps["storeFile"] as String)',
@@ -221,6 +221,8 @@ jobs:
                   if text.count(old) != 1:
                       raise SystemExit(f"Expected one match for {old!r}; refusing to guess.")
                   text = text.replace(old, new)
+              if is_kts:
+                  text = "import java.io.FileInputStream\nimport java.util.Properties\n\n" + text
               gradle.write_text(text)
               print(f"Enabled release signing in {gradle}")
           PY
