@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/config/constants.dart';
 import '../core/services/auth_service.dart';
+import 'register_screen.dart';
 import '../shared/models/xame_user.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -419,6 +420,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       TextButton(
                         onPressed: _busy ? null : _backToLogin,
                         child: const Text('Back to sign in'),
+                      ),
+                    ],
+                    if (!_otpRequired && !_passwordSetupRequired) ...[
+                      const SizedBox(height: 10),
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const RegisterScreen(),
+                                  ),
+                                ),
+                        child: const Text('Create your XamePay account'),
                       ),
                     ],
                     const SizedBox(height: 26),

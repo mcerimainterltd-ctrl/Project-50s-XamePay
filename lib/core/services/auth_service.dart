@@ -179,6 +179,215 @@ class AuthService {
     return LoginResult.success(user);
   }
 
+
+  Exception _registrationRequestError(
+    DioException error, {
+    required String fallback,
+  }) {
+    final data = error.response?.data;
+
+    if (data is Map) {
+      final message = data['message'];
+      if (message is String && message.trim().isNotEmpty) {
+        return Exception(message.trim());
+      }
+
+      final errors = data['errors'];
+      if (errors is List) {
+        final messages = errors
+            .map((item) {
+              if (item is Map) {
+                return item['msg']?.toString() ??
+                    item['message']?.toString();
+              }
+              return item?.toString();
+            })
+            .whereType<String>()
+            .map((message) => message.trim())
+            .where((message) => message.isNotEmpty)
+            .toList();
+
+        if (messages.isNotEmpty) {
+          return Exception(messages.join('\n'));
+        }
+      }
+    }
+
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.connectionError) {
+      return Exception(
+        'Could not connect. Check your internet connection and try again.',
+      );
+    }
+
+    return Exception(fallback);
+  }
+
+  String? validateRegistrationDob(int day, int month, int year) {
+    final currentYear = DateTime.now().year;
+
+    if (year < 1900 || year > currentYear) {
+      return 'Enter a valid year.';
+    }
+    if (month < 1 || month > 12) {
+      return 'Enter a valid month.';
+    }
+    if (day < 1 || day > 31) {
+      return 'Enter a valid day.';
+    }
+
+    final date = DateTime(year, month, day);
+    if (date.year != year ||
+        date.month != month ||
+        date.day != day) {
+      return 'Enter a valid date of birth.';
+    }
+
+    return null;
+  }
+
+  Future<void> sendRegistrationOtp(String phone) async {
+    late final Response<dynamic> response;
+    try {
+      response = await _dio.post(
+        '/api/auth/send-otp',
+        data: {'phone': phone.trim()},
+      );
+    } on DioException catch (error) {
+      throw _registrationRequestError(
+        error,
+        fallback: 'Could not send verification code. Please try again.',
+      );
+    }
+
+    final data = response.data;
+    if (data is! Map || data['success'] != true) {
+      final message = data is Map
+          ? data['message']?.toString()
+          : null;
+      throw Exception(message ?? 'Could not send verification code.');
+    }
+  }
+
+  Future<void> verifyRegistrationOtp({
+    required String phone,
+    required String otp,
+  }) async {
+    late final Response<dynamic> response;
+    try {
+      response = await _dio.post(
+        '/api/auth/verify-otp',
+        data: {'phone': phone.trim(), 'otp': otp.trim()},
+      );
+    } on DioException catch (error) {
+      throw _registrationRequestError(
+        error,
+        fallback: 'Phone verification failed. Please try again.',
+      );
+    }
+
+    final data = response.data;
+    if (data is! Map || data['success'] != true) {
+      final message = data is Map
+          ? data['message']?.toString()
+          : null;
+      throw Exception(message ?? 'Phone verification failed.');
+    }
+  }
+
+  Future<XameUser> register({
+    required String firstName,
+    required String lastName,
+    required String dob,
+    required String password,
+    String? phone,
+  }) async {
+    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(dob)) {
+      throw Exception('Invalid date of birth format.');
+    }
+
+    final parts = dob.split('-').map(int.parse).toList();
+    final dobError =
+        validateRegistrationDob(parts[2], parts[1], parts[0]);
+    if (dobError != null) throw Exception(dobError);
+
+    final passwordResult = validatePassword(password);
+    if (!passwordResult.isValid) {
+      throw Exception(passwordResult.errors.join('\n'));
+    }
+
+    final normalizedPhone = phone?.trim();
+    if (normalizedPhone != null &&
+        normalizedPhone.isNotEmpty &&
+        !RegExp(r'^\+[1-9]\d{6,14}$').hasMatch(normalizedPhone)) {
+      throw Exception(
+        'Phone number must be in international format starting with +.',
+      );
+    }
+
+    late final Response<dynamic> response;
+    try {
+      response = await _dio.post(
+        '/api/register',
+        data: {
+          'firstName': firstName.trim(),
+          'lastName': lastName.trim(),
+          'dob': dob,
+          'password': password,
+          if (normalizedPhone != null && normalizedPhone.isNotEmpty)
+            'phone': normalizedPhone,
+        },
+      );
+    } on DioException catch (error) {
+      throw _registrationRequestError(
+        error,
+        fallback: 'Registration failed. Please try again.',
+      );
+    }
+
+    final data = response.data;
+    if (data is! Map || data['success'] != true) {
+      final message = data is Map
+          ? data['message']?.toString() ??
+              data['errors']?.toString()
+          : null;
+      throw Exception(message ?? 'Registration failed.');
+    }
+
+    final rawUser = data['user'];
+    if (rawUser is! Map) {
+      throw Exception('Registration response did not contain a user.');
+    }
+
+    final user = XameUser.fromMap(
+      Map<String, dynamic>.from(rawUser),
+    );
+
+    if (user.xameId.trim().isEmpty) {
+      throw Exception('Registration response did not contain a Xame-ID.');
+    }
+
+    return user;
+  }
+
+  Future<void> registerReferral({
+    required String newUserId,
+    required String referralCode,
+  }) async {
+    try {
+      await _dio.post(
+        '/api/rewards/register-referral',
+        data: {
+          'newUserId': newUserId,
+          'referralCode': referralCode.trim(),
+        },
+      );
+    } catch (_) {
+      // Referral processing is optional and must not block registration.
+    }
+  }
+
   Future<void> logout(String xameId) async {
     final token = await _storage.read(
       key: AppConstants.keySessionToken,
