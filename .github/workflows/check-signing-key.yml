@@ -2,6 +2,9 @@ name: Check XamePay Signing Key
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - 'signcheck*'
 
 jobs:
   check:
