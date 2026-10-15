@@ -21,7 +21,7 @@ jobs:
   validate:
     name: Validate Flutter dependencies and Dart source
     if: ${{ !endsWith(github.ref, '-ios') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Check out source
@@ -43,7 +43,7 @@ jobs:
   android-build:
     name: Build Android APK
     if: ${{ !endsWith(github.ref, '-ios') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: validate
 
     steps:
