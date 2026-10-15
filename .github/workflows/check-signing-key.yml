@@ -27,6 +27,13 @@ jobs:
           echo "KEY_PASSWORD length: ${#KS_KEYPASS}"
           echo "KEY_ALIAS length: ${#KS_ALIAS}"
           ls -la release.jks
+          {
+            echo "- KEYSTORE_BASE64 length: ${#KS_B64}"
+            echo "- KEYSTORE_PASSWORD length: ${#KS_PASS}"
+            echo "- KEY_PASSWORD length: ${#KS_KEYPASS}"
+            echo "- KEY_ALIAS length: ${#KS_ALIAS}"
+            echo "- $(ls -la release.jks)"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Show public certificate fingerprint
         run: |
@@ -34,4 +41,4 @@ jobs:
             -keystore release.jks \
             -storepass "${{ secrets.KEYSTORE_PASSWORD }}" \
             -alias "${{ secrets.KEY_ALIAS }}" \
-            2>&1 | grep -E "Alias name:|Entry type:|SHA256:|error|Exception|not exist"
+            2>&1 | grep -E "Alias name:|Entry type:|SHA256:|error|Exception|not exist" | sed "s/^/- /" | tee -a "$GITHUB_STEP_SUMMARY"
