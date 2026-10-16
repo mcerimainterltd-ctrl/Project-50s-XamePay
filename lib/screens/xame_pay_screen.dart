@@ -72,7 +72,7 @@ _ParsedTxLabel _parseTxLabel(String label, String type) {
 }
 
 class WalletTx {
-  final String id, label, icon, type, status, ts, flwRef;
+  final String id, label, icon, type, status, ts, flwRef, txRef;
   final double amount;
   final double? sentAmount, recvAmount, fxRate, principal, fee;
   final int? cashback;
@@ -81,6 +81,7 @@ class WalletTx {
   WalletTx.fromJson(Map<String, dynamic> j)
       : id               = j['_id']?.toString() ?? j['id']?.toString() ?? '${DateTime.now().millisecondsSinceEpoch}',
         flwRef           = j['flwRef']?.toString() ?? '',
+        txRef            = j['ref']?.toString() ?? '',
         label            = j['label']  ?? '',
         icon             = j['icon']   ?? '💳',
         type             = j['type']   ?? 'debit',
@@ -613,6 +614,57 @@ class _XamePayScreenState extends State<XamePayScreen>
         }
       }
     } catch (_) {}
+    _settlePendingTransfers();
+  }
+
+  bool _settleBusy = false;
+
+  Future<void> _settlePendingTransfers() async {
+    if (_settleBusy || !mounted) return;
+    _settleBusy = true;
+    try {
+      final okRef = RegExp(r'^[A-Za-z0-9._:-]{8,100}$');
+      final storage = await SharedPreferences.getInstance();
+      final guardKey = 'xamepay_bank_transfer_${widget.userId}';
+      String? guardRef;
+      final saved = storage.getString(guardKey);
+      if (saved != null) {
+        try {
+          guardRef = (jsonDecode(saved) as Map<String, dynamic>)['reference']
+              as String?;
+        } catch (_) {}
+      }
+      final refs = <String>[];
+      if (guardRef != null && okRef.hasMatch(guardRef)) refs.add(guardRef);
+      for (final t in _txs) {
+        if (t.status == 'Pending' &&
+            t.type == 'debit' &&
+            okRef.hasMatch(t.txRef) &&
+            !refs.contains(t.txRef)) {
+          refs.add(t.txRef);
+        }
+      }
+      var changed = false;
+      for (final ref in refs.take(5)) {
+        try {
+          final r = await http
+              .get(
+                Uri.parse('${widget.serverUrl}/api/wallet/transfer-status/$ref'),
+                headers: await AuthService().authenticatedHeaders(),
+              )
+              .timeout(const Duration(seconds: 12));
+          final d = jsonDecode(r.body);
+          final st = d['status']?.toString();
+          if (d['pending'] == false && (st == 'succeeded' || st == 'refunded')) {
+            changed = true;
+            if (ref == guardRef) await storage.remove(guardKey);
+          }
+        } catch (_) {}
+      }
+      if (changed && mounted) await _loadWallet();
+    } finally {
+      _settleBusy = false;
+    }
   }
 
   bool _pinEnabled = false;
