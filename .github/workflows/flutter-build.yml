@@ -65,6 +65,25 @@ jobs:
             --project-name app \
             .
 
+      - name: Install XamePay launcher icons
+        shell: bash
+        run: |
+          python3 -c "import PIL" 2>/dev/null || python3 -m pip install --quiet pillow || python3 -m pip install --quiet --break-system-packages pillow
+          python3 <<'PY'
+          from pathlib import Path
+          from PIL import Image
+
+          logo = Image.open("assets/images/xamepay_logo.png").convert("RGBA")
+          sizes = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
+          res = Path("android/app/src/main/res")
+          for density, px in sizes.items():
+              folder = res / f"mipmap-{density}"
+              if not folder.is_dir():
+                  raise SystemExit(f"{folder} not found; refusing to guess.")
+              logo.resize((px, px), Image.LANCZOS).save(folder / "ic_launcher.png")
+              print(f"wrote {folder / 'ic_launcher.png'}")
+          PY
+
       - name: Enable core library desugaring
         shell: bash
         run: |

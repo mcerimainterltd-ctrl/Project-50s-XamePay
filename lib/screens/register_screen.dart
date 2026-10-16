@@ -630,18 +630,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 padding: const EdgeInsets.fromLTRB(22, 18, 22, 32),
                 child: Column(
                   children: [
-                    Container(
-                      width: 58,
-                      height: 58,
-                      decoration: BoxDecoration(
-                        color: _emerald,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: const Icon(
-                        Icons.account_balance_wallet_rounded,
-                        color: _gold,
-                        size: 31,
-                      ),
+                    Image.asset(
+                      'assets/images/xamepay_logo.png',
+                      width: 76,
+                      height: 76,
+                      filterQuality: FilterQuality.high,
                     ),
                     const SizedBox(height: 22),
                     _buildForm(),

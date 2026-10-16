@@ -222,19 +222,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      width: 76,
-                      height: 76,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF064E3B),
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: const Icon(
-                        Icons.account_balance_wallet_rounded,
-                        size: 40,
-                        color: Color(0xFFE6C978),
-                      ),
+                    Image.asset(
+                      'assets/images/xamepay_logo.png',
+                      width: 96,
+                      height: 96,
+                      filterQuality: FilterQuality.high,
                     ),
                     const SizedBox(height: 22),
                     const Text(

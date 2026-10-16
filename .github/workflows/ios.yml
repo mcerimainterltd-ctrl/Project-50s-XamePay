@@ -33,6 +33,35 @@ jobs:
       - name: Generate iOS folder
         run: flutter create --platforms=ios --org com.xamepay --project-name app .
 
+      - name: Install XamePay app icons
+        shell: bash
+        run: |
+          python3 -c "import PIL" 2>/dev/null || python3 -m pip install --quiet pillow || python3 -m pip install --quiet --break-system-packages pillow
+          python3 <<'PY'
+          import json
+          from pathlib import Path
+          from PIL import Image
+
+          icon_dir = Path("ios/Runner/Assets.xcassets/AppIcon.appiconset")
+          contents = icon_dir / "Contents.json"
+          if not contents.is_file():
+              raise SystemExit("AppIcon Contents.json not found; refusing to guess.")
+          logo = Image.open("assets/images/xamepay_logo.png").convert("RGBA")
+          for entry in json.loads(contents.read_text())["images"]:
+              name = entry.get("filename")
+              if not name:
+                  continue
+              size = float(entry["size"].split("x")[0])
+              scale = int(entry["scale"].rstrip("x"))
+              px = round(size * scale)
+              canvas = Image.new("RGB", (px, px), (4, 35, 27))
+              inner = round(px * 0.8)
+              mark = logo.resize((inner, inner), Image.LANCZOS)
+              canvas.paste(mark, ((px - inner) // 2, (px - inner) // 2), mark)
+              canvas.save(icon_dir / name)
+              print(f"wrote {name} ({px}px)")
+          PY
+
       - name: Set minimum iOS deployment target to 13.0
         run: |
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 12.0/IPHONEOS_DEPLOYMENT_TARGET = 13.0/g' ios/Runner.xcodeproj/project.pbxproj
