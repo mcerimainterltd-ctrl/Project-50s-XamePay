@@ -72,7 +72,7 @@ _ParsedTxLabel _parseTxLabel(String label, String type) {
 }
 
 class WalletTx {
-  final String id, label, icon, type, status, ts, flwRef;
+  final String id, label, icon, type, status, ts, flwRef, ref, source;
   final double amount;
   final double? sentAmount, recvAmount, fxRate, principal, fee;
   final int? cashback;
@@ -81,6 +81,8 @@ class WalletTx {
   WalletTx.fromJson(Map<String, dynamic> j)
       : id               = j['_id']?.toString() ?? j['id']?.toString() ?? '${DateTime.now().millisecondsSinceEpoch}',
         flwRef           = j['flwRef']?.toString() ?? '',
+        ref              = j['ref']?.toString() ?? '',
+        source           = j['source']?.toString() ?? '',
         label            = j['label']  ?? '',
         icon             = j['icon']   ?? '💳',
         type             = j['type']   ?? 'debit',
@@ -566,7 +568,7 @@ class _XamePayScreenState extends State<XamePayScreen>
     if (mounted) setState(() => _loading = false);
   }
 
-  Future<void> _loadWallet() async {
+  Future<void> _loadWallet({bool reconcileTransfers = true}) async {
     try {
       final r = await http
           .get(
@@ -611,8 +613,89 @@ class _XamePayScreenState extends State<XamePayScreen>
           final p2 = await SharedPreferences.getInstance();
           await p2.setString('wallet:dispCurrency', newDisp);
         }
+
+        // Reconcile in the background so wallet loading is not delayed.
+        if (reconcileTransfers && mounted) {
+          _reconcilePendingWalletTransfers(List<WalletTx>.from(_txs));
+        }
       }
     } catch (_) {}
+  }
+
+
+  bool _reconcilingWalletTransfers = false;
+
+  Future<void> _reconcilePendingWalletTransfers(
+    List<WalletTx> transactions,
+  ) async {
+    if (_reconcilingWalletTransfers) return;
+
+    final pending = transactions.where((tx) {
+      return tx.source == 'wallet_transfer' &&
+          tx.status.toLowerCase() == 'pending' &&
+          RegExp(r'^[A-Za-z0-9._:-]{8,100}$').hasMatch(tx.ref);
+    }).take(5).toList();
+
+    if (pending.isEmpty) return;
+
+    _reconcilingWalletTransfers = true;
+    var terminalFound = false;
+
+    try {
+      final headers = await AuthService().authenticatedHeaders();
+
+      for (final tx in pending) {
+        try {
+          final uri = Uri.parse(
+            '${widget.serverUrl}/api/wallet/transfer-status/'
+            '${Uri.encodeComponent(tx.ref)}',
+          );
+
+          final response = await http
+              .get(uri, headers: headers)
+              .timeout(const Duration(seconds: 10));
+
+          if (response.statusCode < 200 || response.statusCode >= 300) {
+            continue;
+          }
+
+          final data = jsonDecode(response.body);
+          if (data is! Map || data['pending'] != false) continue;
+
+          final status = data['status']?.toString().toLowerCase() ?? '';
+          if (status != 'succeeded' && status != 'refunded') continue;
+
+          terminalFound = true;
+
+          // Clear the saved retry guard only when it belongs to this reference.
+          final prefs = await SharedPreferences.getInstance();
+          final key = 'xamepay_bank_transfer_${widget.userId}';
+          final saved = prefs.getString(key);
+
+          if (saved != null) {
+            try {
+              final record = jsonDecode(saved);
+              if (record is Map && record['reference'] == tx.ref) {
+                await prefs.remove(key);
+              }
+            } catch (_) {
+              // Preserve malformed saved state for manual review.
+            }
+          }
+        } catch (_) {
+          // An unavailable or inconclusive status must remain unresolved.
+        }
+      }
+
+      // Reload once after confirmed terminal outcomes. Do not poll recursively.
+      if (terminalFound && mounted) {
+        await _loadWallet(reconcileTransfers: false);
+      }
+    } catch (_) {
+      // Reconciliation must not disrupt wallet loading or history.
+    } finally {
+      _reconcilingWalletTransfers = false;
+    }
   }
 
   bool _pinEnabled = false;
