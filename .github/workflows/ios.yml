@@ -33,6 +33,13 @@ jobs:
       - name: Generate iOS folder
         run: flutter create --platforms=ios --org com.xamepay --project-name app .
 
+      - name: Set XamePay app name
+        run: |
+          PLIST=ios/Runner/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName XamePay" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string XamePay" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleName XamePay" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :CFBundleName string XamePay" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" "$PLIST"
+
       - name: Install XamePay app icons
         shell: bash
         run: |

@@ -65,6 +65,22 @@ jobs:
             --project-name app \
             .
 
+      - name: Set XamePay app name
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          if len(re.findall(r'android:label="[^"]*"', m)) != 1:
+              raise SystemExit("Expected exactly one android:label; refusing to guess.")
+          m = re.sub(r'android:label="[^"]*"', 'android:label="XamePay"', m)
+          manifest.write_text(m)
+          print("Set android:label to XamePay")
+          PY
+
       - name: Install XamePay launcher icons
         shell: bash
         run: |
