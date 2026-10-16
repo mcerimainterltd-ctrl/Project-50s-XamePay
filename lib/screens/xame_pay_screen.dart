@@ -2614,6 +2614,43 @@ class _SendTabState extends State<_SendTab> {
         try {
           await widget.onSuccess();
         } catch (_) {}
+        // The provider accepted the transfer: the wallet is debited and the
+        // money is on its way. Open the details screen at once as
+        // "Processing" and follow the final outcome live. Only an
+        // unconfirmed outcome (success != true) keeps the cautious message.
+        if (d['success'] == true) {
+          _saveBeneficiary();
+          if (!mounted) return;
+          final live = ValueNotifier<String>('processing');
+          unawaited(_followTransfer(txRef, live, storageKey));
+          final freshRecipientName =
+              d['recipientName']?.toString() ?? recipientName;
+          Navigator.of(context).pop();
+          Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => TransactionDetailsScreen(
+              amount: (d['principal'] as num?)?.toDouble() ?? transferAmount,
+              fee: (d['fee'] as num?)?.toDouble() ?? 0,
+              totalDebit: (d['totalDebit'] as num?)?.toDouble() ??
+                  transferAmount + ((d['fee'] as num?)?.toDouble() ?? 0),
+              cashbackCoins: d['cashbackCoins'] as int?,
+              senderName: d['senderName']?.toString() ?? '',
+              senderBankName: d['senderBankName']?.toString() ?? '',
+              senderAccountNumber: d['senderAccountNumber']?.toString() ?? '',
+              recipientName: freshRecipientName,
+              bankName: d['bankName']?.toString() ?? bankName,
+              accountNumber: d['accountNumber']?.toString() ?? accountNumber,
+              txRef: d['txRef']?.toString() ?? txRef,
+              sessionId: d['txRef']?.toString() ?? txRef,
+              paymentMethod: 'XamePay Wallet',
+              ts: DateTime.tryParse(d['ts']?.toString() ?? '') ??
+                  DateTime.now(),
+              fmt: widget.fmt,
+              description: 'Transfer to $freshRecipientName',
+              liveStatus: live,
+            ),
+          ));
+          return;
+        }
         widget.snack(
           'Transfer pending confirmation. Do not submit another transfer. Reference: $txRef',
         );
@@ -2673,6 +2710,46 @@ class _SendTabState extends State<_SendTab> {
       );
     }
   }
+  // Follows an accepted bank transfer until the provider confirms it.
+  // Uses the server's reconciliation route, which never submits a new
+  // transfer. Stops at a final outcome or after about two and a half minutes.
+  Future<void> _followTransfer(
+      String txRef, ValueNotifier<String> live, String storageKey) async {
+    final base = widget.serverUrl;
+    for (var i = 0; i < 40; i++) {
+      await Future.delayed(Duration(seconds: i < 5 ? 2 : 4));
+      try {
+        final r = await http
+            .get(
+              Uri.parse('$base/api/wallet/transfer-status/'
+                  '${Uri.encodeComponent(txRef)}'),
+              headers: await AuthService().authenticatedHeaders(),
+            )
+            .timeout(const Duration(seconds: 10));
+        if (r.statusCode < 200 || r.statusCode >= 300) continue;
+        final data = jsonDecode(r.body);
+        if (data is! Map || data['pending'] != false) continue;
+        final status = data['status']?.toString().toLowerCase() ?? '';
+        if (status != 'succeeded' && status != 'refunded') continue;
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final saved = prefs.getString(storageKey);
+          if (saved != null) {
+            final rec = jsonDecode(saved);
+            if (rec is Map && rec['reference'] == txRef) {
+              await prefs.remove(storageKey);
+            }
+          }
+        } catch (_) {}
+        live.value = status == 'succeeded' ? 'succeeded' : 'failed';
+        try {
+          await widget.onSuccess();
+        } catch (_) {}
+        return;
+      } catch (_) {}
+    }
+  }
+
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
     padding: const EdgeInsets.all(20),
@@ -4728,7 +4805,10 @@ class _HistoryTabState extends State<_HistoryTab> {
       ts:                  DateTime.tryParse(tx.ts) ?? DateTime.now(),
       fmt:                 widget.fmt,
       description:         tx.label,
-    )));
+      liveStatus: tx.status.toLowerCase() == 'pending'
+          ? ValueNotifier<String>('processing')
+          : null,
+      )));
   }
 
   void _showReceipt(BuildContext context, WalletTx tx) {

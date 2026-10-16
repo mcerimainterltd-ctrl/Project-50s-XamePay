@@ -32,6 +32,9 @@ class TransactionDetailsScreen extends StatelessWidget {
   final String paymentMethod;
   final DateTime ts;
   final String Function(double) fmt;
+  /// Live transfer status: 'processing' | 'succeeded' | 'failed'.
+  /// null keeps the original static "Successful" display.
+  final ValueListenable<String>? liveStatus;
   /// Full, ready-to-display sentence describing the transaction, e.g.
   /// "Transfer to GIBSON AGBOR" or "Received from Covenant Agbor".
   /// This is the single source of truth for the title and receipt
@@ -56,6 +59,7 @@ class TransactionDetailsScreen extends StatelessWidget {
     required this.paymentMethod,
     required this.ts,
     required this.fmt,
+    this.liveStatus,
   });
 
   String _fmtTs(DateTime t) {
@@ -112,17 +116,7 @@ class TransactionDetailsScreen extends StatelessWidget {
               Text(fmt(amount),
                   style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800)),
               const SizedBox(height: 4),
-              const Text('Successful',
-                  style: TextStyle(color: _kTeal, fontSize: 14, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 20),
-              // Status timeline
-              Row(children: [
-                _StatusDot(label: 'Payment\nsuccessful', time: _fmtCompact(ts), active: true),
-                Expanded(child: Container(height: 2, color: _kTeal)),
-                _StatusDot(label: 'Processing\nby bank', time: _fmtCompact(ts), active: true),
-                Expanded(child: Container(height: 2, color: _kTeal)),
-                _StatusDot(label: 'Received\nby bank', time: _fmtCompact(ts.add(const Duration(seconds: 30))), active: true),
-              ]),
+              _LiveStatusBlock(live: liveStatus, ts: ts, fmtCompact: _fmtCompact),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(10),
@@ -428,5 +422,56 @@ class _ReceiptPreviewScreenState extends State<_ReceiptPreviewScreen> {
         ),
       ]),
     );
+  }
+}
+
+// ── LIVE STATUS ──────────────────────────────────────────────────────────────
+// With no notifier this keeps the original static "Successful" look (used for
+// completed history items). With a notifier it follows the real outcome:
+// 'processing' -> 'succeeded' | 'failed'.
+class _LiveStatusBlock extends StatelessWidget {
+  final ValueListenable<String>? live;
+  final DateTime ts;
+  final String Function(DateTime) fmtCompact;
+  const _LiveStatusBlock({
+    required this.live,
+    required this.ts,
+    required this.fmtCompact,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = live;
+    if (l == null) {
+      return _body('succeeded', fmtCompact(ts.add(const Duration(seconds: 30))));
+    }
+    return ValueListenableBuilder<String>(
+      valueListenable: l,
+      builder: (_, status, __) => _body(status, fmtCompact(DateTime.now())),
+    );
+  }
+
+  Widget _body(String status, String receivedAt) {
+    final done = status == 'succeeded';
+    final failed = status == 'failed';
+    final text = failed
+        ? 'Failed - refunded'
+        : (done ? 'Successful' : 'Processing');
+    final color = failed
+        ? const Color(0xFFFF6464)
+        : (done ? _kTeal : const Color(0xFFE6C978));
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(text,
+          style: TextStyle(
+              color: color, fontSize: 14, fontWeight: FontWeight.w600)),
+      const SizedBox(height: 20),
+      Row(children: [
+        _StatusDot(label: 'Payment\nsuccessful', time: fmtCompact(ts), active: true),
+        Expanded(child: Container(height: 2, color: _kTeal)),
+        _StatusDot(label: 'Processing\nby bank', time: fmtCompact(ts), active: !failed),
+        Expanded(child: Container(height: 2, color: done ? _kTeal : Colors.white24)),
+        _StatusDot(label: 'Received\nby bank', time: done ? receivedAt : '', active: done),
+      ]),
+    ]);
   }
 }
