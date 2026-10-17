@@ -669,7 +669,51 @@ class _XamePayScreenState extends State<XamePayScreen>
 
   bool _pinEnabled = false;
 
-  void _goBack() { if (widget.onBack != null) widget.onBack!(); }
+  bool _dialogOpen = false;
+
+  Future<bool> _askConfirm(String title, String body, String yes) async {
+    if (_dialogOpen || !mounted) return false;
+    _dialogOpen = true;
+    try {
+      final r = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: _kCard,
+          title: Text(title,
+              style: const TextStyle(
+                  color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
+          content: Text(body,
+              style: const TextStyle(color: Colors.white70, fontSize: 14)),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel',
+                    style: TextStyle(color: Colors.white70))),
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: Text(yes, style: const TextStyle(color: _kGold))),
+          ],
+        ),
+      );
+      return r == true;
+    } finally {
+      _dialogOpen = false;
+    }
+  }
+
+  Future<void> _goBack() async {
+    if (await _askConfirm(
+        'Exit XamePay?', 'You will stay signed in.', 'Exit')) {
+      SystemNavigator.pop();
+    }
+  }
+
+  Future<void> _confirmLogout() async {
+    if (await _askConfirm(
+        'Log out?', 'You will need to sign in again.', 'Log out')) {
+      if (widget.onBack != null) widget.onBack!();
+    }
+  }
 
   RegionInfo get _ri => _kRegions.firstWhere(
         (r) => r.countryCode == _serviceRegion,
@@ -727,8 +771,9 @@ class _XamePayScreenState extends State<XamePayScreen>
           backgroundColor: _kCard,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.chevron_left, color: Colors.white, size: 28),
-            onPressed: _goBack,
+            tooltip: 'Log out',
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: _confirmLogout,
           ),
           title: Row(mainAxisSize: MainAxisSize.min, children: [
             Text(_region(_serviceRegion).flag, style: const TextStyle(fontSize: 18)),

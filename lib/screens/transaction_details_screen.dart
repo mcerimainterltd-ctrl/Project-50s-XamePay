@@ -119,13 +119,18 @@ class TransactionDetailsScreen extends StatelessWidget {
               const SizedBox(height: 4),
               _LiveStatusBlock(live: liveStatus, ts: ts, fmtCompact: _fmtCompact),
               const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
-                child: const Text(
-                  'The recipient account is expected to be credited within 5 minutes, subject to notification by the bank.',
-                  style: TextStyle(color: _kMuted, fontSize: 11, height: 1.4),
+              ValueListenableBuilder<String>(
+                valueListenable: liveStatus ?? _kNoLive,
+                builder: (_, st, note) =>
+                    st == 'failed' ? const SizedBox.shrink() : note!,
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
+                  child: const Text(
+                    'The recipient account is expected to be credited within 5 minutes, subject to notification by the bank.',
+                    style: TextStyle(color: _kMuted, fontSize: 11, height: 1.4),
+                  ),
                 ),
               ),
             ]),
@@ -430,6 +435,9 @@ class _ReceiptPreviewScreenState extends State<_ReceiptPreviewScreen> {
 // With no notifier this keeps the original static "Successful" look (used for
 // completed history items). With a notifier it follows the real outcome:
 // 'processing' -> 'succeeded' | 'failed'.
+// Stand-in notifier for rows with no live status; it never changes.
+final ValueNotifier<String> _kNoLive = ValueNotifier<String>('');
+
 class _LiveStatusBlock extends StatelessWidget {
   final ValueListenable<String>? live;
   final DateTime ts;
