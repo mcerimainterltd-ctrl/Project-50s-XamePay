@@ -90,7 +90,7 @@ class SocketService {
         IO.OptionBuilder()
             .setPath('/socket.io/')
             .setTransports(['websocket'])
-            .setQuery({'userId': xameId})
+            .setQuery({'userId': xameId, 'app': 'xamepay'})
             .setAuth({'token': token.trim()})
             .enableReconnection()
             .setReconnectionDelay(1000)
