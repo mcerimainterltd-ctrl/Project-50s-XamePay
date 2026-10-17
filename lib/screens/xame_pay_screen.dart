@@ -4859,7 +4859,9 @@ class _HistoryTabState extends State<_HistoryTab> {
       description:         tx.label,
       liveStatus: tx.status.toLowerCase() == 'pending'
           ? ValueNotifier<String>('processing')
-          : null,
+          : (tx.status.toLowerCase() == 'failed'
+              ? ValueNotifier<String>('failed')
+              : null),
       )));
   }
 
