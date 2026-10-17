@@ -13,7 +13,7 @@ class AppLockService {
   static const maxFails = 5;
 
   static String _hash(String pin, String salt) {
-    var d = utf8.encode('$salt:$pin');
+    List<int> d = utf8.encode('$salt:$pin');
     final s = utf8.encode(salt);
     for (var i = 0; i < 20000; i++) {
       d = sha256.convert([...d, ...s]).bytes;
