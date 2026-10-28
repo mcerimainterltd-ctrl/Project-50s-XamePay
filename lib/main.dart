@@ -223,9 +223,13 @@ class _XamePayHomeState extends ConsumerState<_XamePayHome>
       );
     }
 
+    final xameContacts = ref.watch(xameContactsProvider).valueOrNull ??
+        const <Map<String, String>>[];
+
     return XamePayScreen(
       userId: user.xameId,
       serverUrl: AppConstants.serverUrl,
+      xameContacts: xameContacts,
       onBack: _logout,
     );
   }

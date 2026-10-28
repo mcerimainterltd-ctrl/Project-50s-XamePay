@@ -49,6 +49,11 @@ class SocketService {
 
   IO.Socket? _socket;
   String? currentUserId;
+  final _contactsListController =
+      StreamController<List<Map<String, String>>>.broadcast();
+  List<Map<String, String>> latestContacts = const [];
+  Stream<List<Map<String, String>>> get contactsList =>
+      _contactsListController.stream;
   bool _disposed = false;
 
   Stream<Map<String, dynamic>> get walletDebit =>
@@ -70,6 +75,8 @@ class SocketService {
     await disconnect();
 
     currentUserId = xameId;
+    latestContacts = const [];
+    _contactsListController.add(const []);
 
     final token = await _storage.read(
       key: AppConstants.keySessionToken,
@@ -122,6 +129,22 @@ class SocketService {
         }
       });
 
+      socket.on('contacts_list', (dynamic data) {
+        if (_disposed || data is! List) return;
+        final list = <Map<String, String>>[];
+        for (final c in data) {
+          if (c is! Map) continue;
+          final id = (c['xameId'] ?? '').toString();
+          if (id.isEmpty) continue;
+          final name = (c['name'] ?? id).toString();
+          list.add({'id': id, 'name': name});
+        }
+        latestContacts = list;
+        _contactsListController.add(list);
+      });
+      socket.on('connect', (_) {
+        if (!_disposed) socket.emit('get_contacts', xameId);
+      });
       socket.on('wallet:debit', (dynamic data) {
         if (_disposed || data is! Map) return;
 
@@ -182,5 +205,14 @@ class SocketService {
     _walletDebitController.close();
     _walletReceiveController.close();
     _connectionController.close();
+    _contactsListController.close();
   }
 }
+
+/// Contacts for the Send and Request screens (server get_contacts / contacts_list).
+final xameContactsProvider =
+    StreamProvider<List<Map<String, String>>>((ref) async* {
+  final service = ref.watch(socketServiceProvider);
+  yield service.latestContacts;
+  yield* service.contactsList;
+});
