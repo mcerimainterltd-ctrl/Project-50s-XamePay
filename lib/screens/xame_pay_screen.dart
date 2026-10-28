@@ -1461,6 +1461,7 @@ class _XamePayScreenState extends State<XamePayScreen>
                 maxLength: 6,
                 style: const TextStyle(color: Colors.white, letterSpacing: 8, fontSize: 20),
                 decoration: const InputDecoration(
+                  filled: false,
                   labelText: 'New PIN (4-6 digits)',
                   labelStyle: TextStyle(color: Colors.white54),
                   counterText: '',
@@ -1476,6 +1477,7 @@ class _XamePayScreenState extends State<XamePayScreen>
                 maxLength: 6,
                 style: const TextStyle(color: Colors.white, letterSpacing: 8, fontSize: 20),
                 decoration: const InputDecoration(
+                  filled: false,
                   labelText: 'Confirm PIN',
                   labelStyle: TextStyle(color: Colors.white54),
                   counterText: '',
