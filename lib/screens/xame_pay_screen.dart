@@ -1684,7 +1684,7 @@ class _XamePayScreenState extends State<XamePayScreen>
                         final pin = await showDialog<String>(context: ctx, builder: (_) => AlertDialog(
                           backgroundColor: const Color(0xFF062B21),
                           title: const Text('Enter Current PIN', style: TextStyle(color: Colors.white)),
-                          content: TextField(controller: ctrl, keyboardType: TextInputType.number, obscureText: true, maxLength: 6, style: const TextStyle(color: Colors.white)),
+                          content: TextField(controller: ctrl, keyboardType: TextInputType.number, obscureText: true, maxLength: 6, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(filled: false)),
                           actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Colors.white38))), ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE6C978), foregroundColor: Colors.black), child: const Text('Confirm'))],
                         ));
                         if (pin == null) return;
@@ -2516,6 +2516,7 @@ class _SendTabState extends State<_SendTab> {
           maxLength: 6,
           style: const TextStyle(color: Colors.white, letterSpacing: 8, fontSize: 20),
           decoration: const InputDecoration(
+            filled: false,
             hintText: '••••',
             hintStyle: TextStyle(color: Colors.white38),
             counterText: '',
