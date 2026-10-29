@@ -5660,6 +5660,7 @@ class _SquadFormSheetState extends State<_SquadFormSheet> {
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.white54),
+        filled: false,
         counterStyle: const TextStyle(color: Colors.white38),
         enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
         focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF0FA66F)))),
