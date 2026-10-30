@@ -776,7 +776,7 @@ class _XamePayScreenState extends State<XamePayScreen>
             onPressed: _confirmLogout,
           ),
           title: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(_region(_serviceRegion).flag, style: const TextStyle(fontSize: 18)),
+            Text(_ri.flag, style: const TextStyle(fontSize: 18)),
             const SizedBox(width: 6),
             const Text('XamePay',
                 style: TextStyle(color: Colors.white,
