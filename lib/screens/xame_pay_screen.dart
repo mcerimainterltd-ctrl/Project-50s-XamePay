@@ -749,7 +749,7 @@ class _XamePayScreenState extends State<XamePayScreen>
 
   String _convLine() {
     if (_dispCurrency == _currency) return '';
-    return '≈ ${_region(_currency).symbol}${_fmtN(_balance)} $_currency';
+    return ''; // internal only: card shows selected region currency exclusively
   }
 
   void _snack(String m) {
