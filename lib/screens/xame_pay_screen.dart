@@ -1127,7 +1127,7 @@ class _XamePayScreenState extends State<XamePayScreen>
   // ── SQUAD (INTERNATIONAL CARD / USD) ────────────────────────────────────────
   void _showSquadPayment() {
     final amtCtrl = TextEditingController();
-    String squadCurrency = _currency == 'USD' ? 'USD' : 'NGN';
+    String squadCurrency = _currency;
     showModalBottomSheet(
       context: context, backgroundColor: _kCard, isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -1141,7 +1141,7 @@ class _XamePayScreenState extends State<XamePayScreen>
                   style: TextStyle(color: Colors.white,
                       fontSize: 17, fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
-              const Text("Card or bank payment — NGN or USD",
+              Text("Card or bank payment in $_currency",
                   style: TextStyle(color: _kMuted, fontSize: 12)),
               const SizedBox(height: 20),
               DropdownButtonFormField<String>(
@@ -1156,9 +1156,8 @@ class _XamePayScreenState extends State<XamePayScreen>
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: Colors.white24)),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'NGN', child: Text('NGN')),
-                  DropdownMenuItem(value: 'USD', child: Text('USD')),
+                items: [
+                  DropdownMenuItem(value: _currency, child: Text(_currency)),
                 ],
                 onChanged: (v) => setSheetState(() => squadCurrency = v ?? 'NGN'),
               ),
