@@ -4052,7 +4052,7 @@ class _DataTabState extends State<_DataTab> {
   }
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
+  Widget build(BuildContext context) => widget.region.countryCode != "NG" ? Padding(padding: const EdgeInsets.all(32), child: Center(child: Text("📶 Data is not available for ${widget.region.country} yet.", textAlign: TextAlign.center, style: const TextStyle(color: _kMuted, fontSize: 15, fontWeight: FontWeight.w600)))) : SingleChildScrollView(
     padding: const EdgeInsets.all(20),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const Text('📶 Buy Data',
