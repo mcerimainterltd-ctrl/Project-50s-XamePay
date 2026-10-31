@@ -340,11 +340,10 @@ jobs:
           echo "name=$(echo $VERSION | cut -d'+' -f1)" >> $GITHUB_OUTPUT
           echo "build=$(echo $VERSION | cut -d'+' -f2)" >> $GITHUB_OUTPUT
 
-      - name: Download APK artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: XamePay-v${{ steps.ver.outputs.name }}-build${{ steps.ver.outputs.build }}
-          path: apk-output
+      - name: Download APK from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "${{ github.ref_name }}" -p '*.apk' -D apk-output --repo "${{ github.repository }}"
 
       - name: Upload APK to GitHub Release
         uses: softprops/action-gh-release@v2
