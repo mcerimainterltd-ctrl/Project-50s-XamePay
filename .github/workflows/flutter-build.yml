@@ -325,3 +325,29 @@ jobs:
       - name: Cleanup
         if: always()
         run: rm -f android/app/release.jks android/key.properties
+
+  promote:
+    needs: android-build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version
+        id: ver
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | tr -d '[:space:]')
+          echo "name=$(echo $VERSION | cut -d'+' -f1)" >> $GITHUB_OUTPUT
+          echo "build=$(echo $VERSION | cut -d'+' -f2)" >> $GITHUB_OUTPUT
+
+      - name: Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: XamePay-v${{ steps.ver.outputs.name }}-build${{ steps.ver.outputs.build }}
+          path: apk-output
+
+      - name: Upload APK to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: apk-output/*.apk
