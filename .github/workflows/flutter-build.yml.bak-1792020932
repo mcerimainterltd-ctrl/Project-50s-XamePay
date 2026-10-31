@@ -1,0 +1,146 @@
+name: XamePay Android APK Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - 'xamepay-build[0-9]*'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Flutter dependencies and Dart source
+    if: ${{ !endsWith(github.ref, '-ios') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyse Dart source
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+  android-build:
+    name: Build Android APK
+    if: ${{ !endsWith(github.ref, '-ios') }}
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android platform scaffold
+        run: |
+          flutter create \
+            --platforms=android \
+            --org com.xamepay \
+            --project-name app \
+            .
+
+      - name: Enable core library desugaring
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          candidates = [
+              Path("android/app/build.gradle.kts"),
+              Path("android/app/build.gradle"),
+          ]
+          gradle = next((p for p in candidates if p.is_file()), None)
+          if gradle is None:
+              raise SystemExit("Android app Gradle file was not generated.")
+
+          text = gradle.read_text()
+          is_kts = gradle.suffix == ".kts"
+
+          marker = "isCoreLibraryDesugaringEnabled = true" if is_kts else "coreLibraryDesugaringEnabled true"
+          if marker not in text:
+              pattern = r"compileOptions\s*\{"
+              match = re.search(pattern, text)
+              if not match:
+                  raise SystemExit("Could not find compileOptions block; refusing to guess.")
+              start = match.end()
+              depth = 1
+              i = start
+              while i < len(text) and depth:
+                  if text[i] == "{":
+                      depth += 1
+                  elif text[i] == "}":
+                      depth -= 1
+                  i += 1
+              if depth:
+                  raise SystemExit("Unclosed compileOptions block.")
+              block = text[match.start():i]
+              addition = (
+                  "\n        isCoreLibraryDesugaringEnabled = true\n"
+                  if is_kts else
+                  "\n        coreLibraryDesugaringEnabled true\n"
+              )
+              text = text[:i - 1] + addition + text[i - 1:]
+
+          dependency = (
+              'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")'
+              if is_kts else
+              "coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'"
+          )
+          if dependency not in text:
+              match = re.search(r"dependencies\s*\{", text)
+              if not match:
+                  raise SystemExit("Could not find dependencies block; refusing to guess.")
+              start = match.end()
+              depth = 1
+              i = start
+              while i < len(text) and depth:
+                  if text[i] == "{":
+                      depth += 1
+                  elif text[i] == "}":
+                      depth -= 1
+                  i += 1
+              if depth:
+                  raise SystemExit("Unclosed dependencies block.")
+              text = text[:i - 1] + "\n    " + dependency + "\n" + text[i - 1:]
+
+          gradle.write_text(text)
+          print(f"Enabled core library desugaring in {gradle}")
+          PY
+
+      - name: Verify Android Gradle configuration
+        run: |
+          grep -n -A8 -B2 'compileOptions' android/app/build.gradle*
+          grep -n 'desugar_jdk_libs' android/app/build.gradle*
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xamepay-android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
