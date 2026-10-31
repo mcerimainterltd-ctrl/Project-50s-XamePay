@@ -299,16 +299,18 @@ jobs:
             build/app/outputs/bundle/release/XamePay_v${{ steps.version.outputs.name }}_build${{ steps.version.outputs.build }}.aab
 
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: XamePay-v${{ steps.version.outputs.name }}-build${{ steps.version.outputs.build }}
           path: build/app/outputs/flutter-apk/XamePay_*.apk
-          retention-days: 30
+          retention-days: 2
 
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: XamePay-AAB-v${{ steps.version.outputs.name }}-build${{ steps.version.outputs.build }}
           path: build/app/outputs/bundle/release/XamePay_*.aab
-          retention-days: 30
+          retention-days: 2
 
       - name: GitHub Release
         uses: softprops/action-gh-release@v2
