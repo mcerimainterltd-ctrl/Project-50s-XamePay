@@ -2611,12 +2611,6 @@ class _SendTabState extends State<_SendTab> {
   );
 
   Future<void> _send() async {
-    // XAMEPAY_REGION_SEND_GUARD_V1: no bank send outside the wallet's home country until cross-border quotes exist
-    final homeCc = _kCurrToCC[widget.currency] ?? 'NG';
-    if (widget.region.countryCode != homeCc) {
-      widget.snack('Bank transfers to ${widget.region.country} are not available from a ${widget.currency} wallet yet.');
-      return;
-    }
     if (_selBank == null) {
       widget.snack('Select a bank');
       return;
@@ -2631,6 +2625,13 @@ class _SendTabState extends State<_SendTab> {
     }
     if (_amount > widget.balance) {
       widget.snack('Insufficient balance');
+      return;
+    }
+
+    // XAMEPAY_REGION_SEND_GUARD_V1: no bank send outside the wallet's home country until cross-border quotes exist
+    final homeCc = _kCurrToCC[widget.currency] ?? 'NG';
+    if (widget.region.countryCode != homeCc) {
+      widget.snack('Bank transfers to ${widget.region.country} are not available from a ${widget.currency} wallet yet.');
       return;
     }
 
@@ -3025,8 +3026,6 @@ class _SendTabState extends State<_SendTab> {
                     fontSize: 16, fontWeight: FontWeight.w700)),
           ),
         ),
-      ] else if (widget.region.countryCode != (_kCurrToCC[widget.currency] ?? 'NG')) ...[
-        Padding(padding: const EdgeInsets.all(24), child: Center(child: Text('🌍 Bank transfers to ${widget.region.country} are not available from a ${widget.currency} wallet yet.', textAlign: TextAlign.center, style: const TextStyle(color: _kMuted, fontSize: 15, fontWeight: FontWeight.w600)))), // XAMEPAY_SEND_REGION_NOTICE_V1
       ] else ...[
         const Text('Select Bank',
             style: TextStyle(color: _kMuted,
