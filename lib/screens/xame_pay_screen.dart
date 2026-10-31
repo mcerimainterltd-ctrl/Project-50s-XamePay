@@ -2309,6 +2309,14 @@ class _SendTabState extends State<_SendTab> {
     .toList();
 
   @override void initState() { super.initState(); _fetchBanks(); _fetchBeneficiaries(); if (widget.prefilledUserId != null) { WidgetsBinding.instance.addPostFrameCallback((_) { setState(() => _selContact = widget.prefilledUserId); }); } }
+  @override
+  void didUpdateWidget(covariant _SendTab old) {
+    super.didUpdateWidget(old);
+    if (old.region.countryCode != widget.region.countryCode) {
+      setState(() { _selBank = null; _banks = []; _filtered = []; _resolved = ''; });
+      _fetchBanks();
+    }
+  }
   @override void dispose() {
     _accCtrl.dispose(); _amtCtrl.dispose(); _srchCtrl.dispose();
     _contactSearchCtrl.dispose();
@@ -2451,7 +2459,7 @@ class _SendTabState extends State<_SendTab> {
 
   Future<void> _fetchBanks() async {
     setState(() { _loadingBanks = true; _bankError = false; });
-    final cc = _kCurrToCC[widget.currency] ?? 'NG';
+    final cc = widget.region.countryCode;
     try {
       final r = await http
           .get(Uri.parse(
@@ -2603,6 +2611,12 @@ class _SendTabState extends State<_SendTab> {
   );
 
   Future<void> _send() async {
+    // XAMEPAY_REGION_SEND_GUARD_V1: no bank send outside the wallet's home country until cross-border quotes exist
+    final homeCc = _kCurrToCC[widget.currency] ?? 'NG';
+    if (widget.region.countryCode != homeCc) {
+      widget.snack('Bank transfers to ${widget.region.country} are not available from a ${widget.currency} wallet yet.');
+      return;
+    }
     if (_selBank == null) {
       widget.snack('Select a bank');
       return;
