@@ -36,3 +36,4 @@ ios/Flutter/ephemeral/
 *.bak
 *.backup
 *.orig
+.github/workflows/*.bak-*
