@@ -85,11 +85,10 @@ jobs:
           cp /tmp/XamePay.ipa $GITHUB_WORKSPACE/XamePay.ipa
 
       - uses: actions/upload-artifact@v4
-        continue-on-error: true
         with:
           name: XamePay-iOS-IPA
           path: XamePay.ipa
-          retention-days: 2
+          retention-days: 30
 
       - name: Upload IPA to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
