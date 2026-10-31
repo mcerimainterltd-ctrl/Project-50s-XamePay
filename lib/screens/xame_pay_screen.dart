@@ -3025,6 +3025,8 @@ class _SendTabState extends State<_SendTab> {
                     fontSize: 16, fontWeight: FontWeight.w700)),
           ),
         ),
+      ] else if (widget.region.countryCode != (_kCurrToCC[widget.currency] ?? 'NG')) ...[
+        Padding(padding: const EdgeInsets.all(24), child: Center(child: Text('🌍 Bank transfers to ${widget.region.country} are not available from a ${widget.currency} wallet yet.', textAlign: TextAlign.center, style: const TextStyle(color: _kMuted, fontSize: 15, fontWeight: FontWeight.w600)))), // XAMEPAY_SEND_REGION_NOTICE_V1
       ] else ...[
         const Text('Select Bank',
             style: TextStyle(color: _kMuted,
@@ -4416,6 +4418,7 @@ class _BillsTabState extends State<_BillsTab> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.region.countryCode != "NG") { return Padding(padding: const EdgeInsets.all(32), child: Center(child: Text("🧾 Bills are not available for ${widget.region.country} yet.", textAlign: TextAlign.center, style: const TextStyle(color: _kMuted, fontSize: 15, fontWeight: FontWeight.w600)))); } // XAMEPAY_BILLS_REGION_NOTICE_V1
     if (_biller != null)  return _buildPayForm();
     if (_cat != null)     return _buildBillerList();
     return _buildCategoryGrid();
