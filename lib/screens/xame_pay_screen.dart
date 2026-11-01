@@ -3426,7 +3426,71 @@ class _AirtimeTabState extends State<_AirtimeTab> {
   String? _net; String _phone = '', _amt = '';
   final _pCtrl = TextEditingController();
   final _aCtrl = TextEditingController();
+  // XAMEPAY_INTL_QUOTE_V1: network and accepted amounts for non-Nigerian airtime.
+  Map<String, dynamic>? _quote;
+  bool _quoteBusy = false;
+  String _quoteMsg = '';
+  int _qTok = 0;
   @override void dispose() { _pCtrl.dispose(); _aCtrl.dispose(); super.dispose(); }
+
+  void _onPhoneChanged(String v) {
+    _phone = v;
+    if (widget.region.countryCode == 'NG') return;
+    final tok = ++_qTok;
+    setState(() { _quote = null; _quoteMsg = ''; _quoteBusy = false; });
+    if (v.replaceAll(RegExp(r'\D'), '').length < 8) return;
+    Future.delayed(const Duration(milliseconds: 700), () => _fetchQuote(tok));
+  }
+
+  Future<void> _fetchQuote(int tok) async {
+    if (!mounted || tok != _qTok) return;
+    setState(() => _quoteBusy = true);
+    try {
+      final uri = Uri.parse('${widget.serverUrl}/api/wallet/intl/quote').replace(
+        queryParameters: {
+          'userId': widget.userId,
+          'country': widget.region.countryCode,
+          'phone': _phone.trim(),
+        });
+      final r = await http.get(uri, headers: await AuthService().authenticatedHeaders())
+          .timeout(const Duration(seconds: 15));
+      final d = jsonDecode(r.body);
+      if (!mounted || tok != _qTok) return;
+      setState(() {
+        _quoteBusy = false;
+        if (d is Map && d['success'] == true) {
+          _quote = Map<String, dynamic>.from(d);
+          _quoteMsg = d['supported'] == true ? '' : (d['reason'] ?? '').toString();
+        } else {
+          _quote = null;
+          _quoteMsg = (d is Map ? d['message'] : null)?.toString() ?? 'Could not check this number.';
+        }
+      });
+    } catch (_) {
+      if (!mounted || tok != _qTok) return;
+      setState(() { _quoteBusy = false; _quote = null; _quoteMsg = 'Network lookup failed. Check your connection.'; });
+    }
+  }
+
+  List<num> _chipAmounts() {
+    if (widget.region.countryCode == 'NG') return const [50, 100, 200, 500, 1000, 2000];
+    final q = _quote;
+    if (q != null && q['supported'] == true && q['fixed'] == true) {
+      return (q['amounts'] as List).map((e) => e as num).toList();
+    }
+    return <num>[];
+  }
+
+  String _quoteLabel() {
+    if (_quoteBusy) return 'Checking network…';
+    final q = _quote;
+    if (q != null && q['supported'] == true) {
+      final name = q['operatorName'];
+      if (q['fixed'] == true) return '📶 $name';
+      return '📶 $name  ·  ${q['min']} to ${q['max']} ${q['currency']}';
+    }
+    return _quoteMsg;
+  }
 
   Future<void> _buy() async {
     if (widget.region.countryCode == 'NG' && _net == null) { widget.snack('Select a network'); return; }
@@ -3434,6 +3498,10 @@ class _AirtimeTabState extends State<_AirtimeTab> {
     final amount = double.tryParse(_amt) ?? 0;
     if (amount < 1) { widget.snack('Enter amount'); return; }
     if (amount > widget.balance) { widget.snack('Insufficient balance'); return; }
+    if (widget.region.countryCode != 'NG' && (_quote == null || _quote!['supported'] != true)) {
+      widget.snack(_quoteMsg.isNotEmpty ? _quoteMsg : 'Enter the phone number and wait for the network to be detected.');
+      return;
+    }
     widget.snack('Processing airtime…');
     final result = await _submitRecoverableWalletBill(
       serverUrl: widget.serverUrl,
@@ -3482,8 +3550,12 @@ class _AirtimeTabState extends State<_AirtimeTab> {
           style: TextStyle(color: _kMuted,
               fontSize: 13, fontWeight: FontWeight.w600)),
       const SizedBox(height: 8),
-      _xf(_pCtrl, 'Enter phone number',
-          TextInputType.phone, (v) => _phone = v),
+      _xf(_pCtrl, 'Enter phone number', TextInputType.phone, _onPhoneChanged),
+      if (widget.region.countryCode != 'NG') ...[
+        const SizedBox(height: 8),
+        Text(_quoteLabel(),
+            style: const TextStyle(color: _kMuted, fontSize: 13)),
+      ],
       const SizedBox(height: 16),
       const Text('Amount',
           style: TextStyle(color: _kMuted,
@@ -3493,7 +3565,7 @@ class _AirtimeTabState extends State<_AirtimeTab> {
         crossAxisCount: 3, shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 2.5,
-        children: [50, 100, 200, 500, 1000, 2000].map((a) => GestureDetector(
+        children: _chipAmounts().map((a) => GestureDetector(
           onTap: () { setState(() => _amt = '$a'); _aCtrl.text = '$a'; },
           child: Container(alignment: Alignment.center,
             decoration: BoxDecoration(color: _kCard,
