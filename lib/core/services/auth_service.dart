@@ -247,6 +247,19 @@ class AuthService {
     return null;
   }
 
+  // XAMEPAY_HOME_COUNTRY_V1: countries currently open for XamePay wallets.
+  Future<List<Map<String, dynamic>>> fetchOpenRegions() async {
+    final response = await _dio.get('/api/xamepay/regions');
+    final data = response.data;
+    if (data is Map && data['success'] == true && data['regions'] is List) {
+      return (data['regions'] as List)
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+    return <Map<String, dynamic>>[];
+  }
+
   Future<void> sendRegistrationOtp(String phone) async {
     late final Response<dynamic> response;
     try {
@@ -302,6 +315,7 @@ class AuthService {
     required String dob,
     required String password,
     String? phone,
+    String? homeCountry,
   }) async {
     if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(dob)) {
       throw Exception('Invalid date of birth format.');
@@ -337,6 +351,8 @@ class AuthService {
           'password': password,
           if (normalizedPhone != null && normalizedPhone.isNotEmpty)
             'phone': normalizedPhone,
+          if (homeCountry != null && homeCountry.isNotEmpty)
+            'homeCountry': homeCountry,
         },
       );
     } on DioException catch (error) {

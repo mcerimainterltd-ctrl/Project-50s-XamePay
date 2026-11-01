@@ -37,6 +37,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _otpSent = false;
   XameUser? _createdUser;
   String? _error;
+  // XAMEPAY_HOME_COUNTRY_V1
+  String? _homeCountry;
+  List<Map<String, dynamic>> _regions = [];
+  bool _regionsFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRegions();
+  }
 
   @override
   void dispose() {
@@ -54,6 +64,49 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   AuthService get _auth => ref.read(authServiceProvider);
+
+  Future<void> _loadRegions() async {
+    if (mounted) setState(() => _regionsFailed = false);
+    try {
+      final list = await _auth.fetchOpenRegions();
+      if (!mounted) return;
+      setState(() {
+        _regions = list;
+        _regionsFailed = list.isEmpty;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _regionsFailed = true);
+    }
+  }
+
+  Widget _countryPicker() {
+    if (_regions.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: _regionsFailed
+            ? TextButton.icon(
+                onPressed: _loadRegions,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Could not load countries. Tap to retry.'),
+              )
+            : const Text('Loading countries…'),
+      );
+    }
+    return DropdownButtonFormField<String>(
+      value: _homeCountry,
+      isExpanded: true,
+      decoration: _decoration('Country of your wallet'),
+      items: _regions
+          .map((r) => DropdownMenuItem<String>(
+                value: r['code'].toString(),
+                child: Text('${r['name']} (${r['currency']})'),
+              ))
+          .toList(),
+      onChanged: _busy ? null : (v) => setState(() => _homeCountry = v),
+      validator: (v) => v == null ? 'Choose your wallet country' : null,
+    );
+  }
 
   InputDecoration _decoration(String label, {String? hint}) =>
       InputDecoration(
@@ -148,6 +201,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       return;
     }
 
+    if (_homeCountry == null) {
+      setState(() => _error = 'Choose the country for your wallet.');
+      return;
+    }
     setState(() => _busy = true);
     try {
       if (phone.isNotEmpty && !_otpSent) {
@@ -175,6 +232,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         dob: _dateString(),
         password: password,
         phone: phone.isEmpty ? null : phone,
+        homeCountry: _homeCountry,
       );
 
       final referral = _referral.text.trim();
@@ -447,6 +505,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
             ],
           ),
+          _sectionLabel('WALLET COUNTRY'),
+          _countryPicker(),
           _sectionLabel('ACCOUNT SECURITY'),
           _field(
             controller: _phone,
