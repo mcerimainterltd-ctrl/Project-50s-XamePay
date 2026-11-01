@@ -313,12 +313,12 @@ const _kRegions = <RegionInfo>[
     NetItem('MTN-RW',    'MTN',    'FFCC00', 'MTN'),
     NetItem('AIRTEL-RW', 'Airtel', 'FF0000', 'AIR'),
   ]),
-  RegionInfo('XOF','West Africa','SN','CFA','🌍', [
+  RegionInfo('XOF','Senegal','SN','CFA','🇸🇳', [
     NetItem('ORANGE-WA', 'Orange', 'FF7900', 'ORA'),
     NetItem('MTN-WA',    'MTN',    'FFCC00', 'MTN'),
     NetItem('MOOV-WA',   'Moov',   '0033A0', 'MOV'),
   ]),
-  RegionInfo('CMR','Cameroon','CM','FCFA','🇨🇲', [
+  RegionInfo('XAF','Cameroon','CM','FCFA','🇨🇲', [
     NetItem('MTN-CM',    'MTN',    'FFCC00', 'MTN'),
     NetItem('ORANGE-CM', 'Orange', 'FF7900', 'ORA'),
   ]),
@@ -366,14 +366,43 @@ const _kRegions = <RegionInfo>[
     NetItem('PERSONAL-AR', 'Personal', '0033A0', 'PRS'),
     NetItem('MOVISTAR-AR', 'Movistar', '019DF4', 'MOV'),
   ]),
+  RegionInfo('XOF','Benin','BJ','CFA','🇧🇯', []),
+  RegionInfo('XOF','Burkina Faso','BF','CFA','🇧🇫', []),
+  RegionInfo('XOF','Côte d\'Ivoire','CI','CFA','🇨🇮', []),
+  RegionInfo('XOF','Guinea-Bissau','GW','CFA','🇬🇼', []),
+  RegionInfo('XOF','Mali','ML','CFA','🇲🇱', []),
+  RegionInfo('XOF','Niger','NE','CFA','🇳🇪', []),
+  RegionInfo('XOF','Togo','TG','CFA','🇹🇬', []),
+  RegionInfo('XAF','Central African Republic','CF','FCFA','🇨🇫', []),
+  RegionInfo('XAF','Chad','TD','FCFA','🇹🇩', []),
+  RegionInfo('XAF','Republic of the Congo','CG','FCFA','🇨🇬', []),
+  RegionInfo('XAF','Equatorial Guinea','GQ','FCFA','🇬🇶', []),
+  RegionInfo('XAF','Gabon','GA','FCFA','🇬🇦', []),
+  RegionInfo('GNF','Guinea','GN','FG','🇬🇳', []),
+  RegionInfo('CDF','DR Congo','CD','FC','🇨🇩', []),
+  RegionInfo('BIF','Burundi','BI','FBu','🇧🇮', []),
+  RegionInfo('KMF','Comoros','KM','CF','🇰🇲', []),
+  RegionInfo('DJF','Djibouti','DJ','Fdj','🇩🇯', []),
+  RegionInfo('MGA','Madagascar','MG','Ar','🇲🇬', []),
+  RegionInfo('SCR','Seychelles','SC','SCR','🇸🇨', []),
+  RegionInfo('DZD','Algeria','DZ','DA','🇩🇿', []),
+  RegionInfo('TND','Tunisia','TN','DT','🇹🇳', []),
+  RegionInfo('MRU','Mauritania','MR','UM','🇲🇷', []),
+  RegionInfo('EUR','France','FR','€','🇫🇷', []),
 ];
+
+// XAMEPAY_WALLET_REGION_V1: one entry per currency (several countries share a currency).
+final _kCurrencyRegions = (() {
+  final seen = <String>{};
+  return _kRegions.where((r) => seen.add(r.currency)).toList();
+})();
 
 // currency → Flutterwave country code
 const _kCurrToCC = {
   'NGN':'NG','GHS':'GH','KES':'KE','ZAR':'ZA','TZS':'TZ','UGX':'UG',
   'ZMW':'ZM','RWF':'RW','ETB':'ET','USD':'US','GBP':'GB','EUR':'DE',
   'INR':'IN','CAD':'CA','AUD':'AU','MXN':'MX','BRL':'BR','PHP':'PH',
-  'MYR':'MY','IDR':'ID','EGP':'EG','MAD':'MA','XOF':'SN','CMR':'CM',
+  'MYR':'MY','IDR':'ID','EGP':'EG','MAD':'MA','XOF':'SN','XAF':'CM',
   'QAR':'QA','VND':'VN','THB':'TH','PKR':'PK','AED':'AE','SAR':'SA',
   'TRY':'TR','JPY':'JP','SGD':'SG','ZWL':'ZW','COP':'CO','ARS':'AR',
 };
@@ -455,6 +484,7 @@ class _XamePayScreenState extends State<XamePayScreen>
     with SingleTickerProviderStateMixin {
 
   String _currency = 'NGN', _dispCurrency = 'NGN';
+  String _homeCountry = ''; // XAMEPAY_WALLET_REGION_V1
   String _serviceRegion = 'NG';
   double _balance  = 0;
   Map<String, String>? _myVirtualAccount;
@@ -583,6 +613,12 @@ class _XamePayScreenState extends State<XamePayScreen>
         setState(() {
           if (RegExp(r'^[A-Z]{3}$').hasMatch(walletCurrency)) {
             _currency = walletCurrency;
+          }
+          // XAMEPAY_WALLET_REGION_V1: the wallet's home country drives the service region.
+          final hcRaw = d['homeCountry']?.toString().trim().toUpperCase() ?? '';
+          if (hcRaw.isNotEmpty) {
+            _homeCountry = hcRaw;
+            if (_kRegions.any((r) => r.countryCode == hcRaw)) _serviceRegion = hcRaw;
           }
           _balance = (d['balance'] as num?)?.toDouble() ?? 0;
           if (newDisp.isNotEmpty &&
@@ -1584,7 +1620,7 @@ class _XamePayScreenState extends State<XamePayScreen>
                 value: td, isExpanded: true, dropdownColor: _kBg,
                 style: const TextStyle(color: Colors.white, fontSize: 14),
                 decoration: _dropDeco(),
-                items: _kRegions.map((r) => DropdownMenuItem(
+                items: _kCurrencyRegions.map((r) => DropdownMenuItem(
                   value: r.currency,
                   child: Row(children: [
                     Text(r.flag, style: const TextStyle(fontSize: 18)),
@@ -1634,6 +1670,27 @@ class _XamePayScreenState extends State<XamePayScreen>
                       borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: () async {
+                  // XAMEPAY_WALLET_REGION_V1: the region also sets the wallet's country;
+                  // the server decides whether the change is allowed.
+                  if (tc != _serviceRegion || tc != _homeCountry) {
+                    try {
+                      final rr = await http.post(
+                        Uri.parse('${widget.serverUrl}/api/wallet/region'),
+                        headers: await AuthService().authenticatedHeaders(),
+                        body: jsonEncode({'userId': widget.userId, 'country': tc}),
+                      );
+                      final rd = jsonDecode(rr.body);
+                      if (rd['success'] != true) {
+                        _snack('❌ ${rd['message'] ?? 'Could not change the wallet region'}');
+                        return;
+                      }
+                      await _loadWallet();
+                    } catch (_) {
+                      _snack('❌ Network error. Region not changed.');
+                      return;
+                    }
+                  }
+
                   setState(() {
                     _serviceRegion = tc;
                     _dispCurrency = td;
@@ -4269,7 +4326,7 @@ const _kBillsCC = {
   'EUR':'DE','INR':'IN','AED':'AE','CAD':'CA','AUD':'AU','JPY':'JP',
   'SGD':'SG','EGP':'EG','SAR':'SA','TRY':'TR','MXN':'MX','IDR':'ID',
   'PHP':'PH','MYR':'MY','BRL':'BR','ZMW':'ZM','UGX':'UG','TZS':'TZ',
-  'RWF':'RW','XOF':'SN','CMR':'CM','QAR':'QA','VND':'VN','THB':'TH',
+  'RWF':'RW','XOF':'SN','XAF':'CM','QAR':'QA','VND':'VN','THB':'TH',
   'PKR':'PK','MAD':'MA','ETB':'ET','ZWL':'ZW','COP':'CO','ARS':'AR',
 };
 
