@@ -3315,6 +3315,14 @@ Future<Map<String, dynamic>> _submitRecoverableWalletBill({
       await prefs.remove(key);
     }
 
+    // Explicit rejection before any reservation (no ledger entry exists):
+    // free the saved reference so a corrected purchase is not blocked.
+    if ((response.statusCode == 400 || response.statusCode == 402) &&
+        result['success'] == false && !result.containsKey('status')) {
+      await prefs.remove(key);
+      return result;
+    }
+
     // Retain the saved reference for pending/unknown outcomes.
     return result;
   } catch (_) {
@@ -3348,16 +3356,11 @@ class _AirtimeTabState extends State<_AirtimeTab> {
   @override void dispose() { _pCtrl.dispose(); _aCtrl.dispose(); super.dispose(); }
 
   Future<void> _buy() async {
-    if (_net == null) { widget.snack('Select a network'); return; }
+    if (widget.region.countryCode == 'NG' && _net == null) { widget.snack('Select a network'); return; }
     if (_phone.trim().length < 6) { widget.snack('Enter phone number'); return; }
     final amount = double.tryParse(_amt) ?? 0;
     if (amount < 1) { widget.snack('Enter amount'); return; }
     if (amount > widget.balance) { widget.snack('Insufficient balance'); return; }
-    if (widget.region.countryCode != 'NG') {
-      widget.snack('Airtime purchases through this provider currently support Nigeria only.');
-      return;
-    }
-
     widget.snack('Processing airtime…');
     final result = await _submitRecoverableWalletBill(
       serverUrl: widget.serverUrl,
@@ -3369,6 +3372,7 @@ class _AirtimeTabState extends State<_AirtimeTab> {
         'operatorId': _net,
         'amount': amount,
         'userId': widget.userId,
+        if (widget.region.countryCode != 'NG') 'countryCode': widget.region.countryCode,
       },
     );
 
@@ -3380,25 +3384,27 @@ class _AirtimeTabState extends State<_AirtimeTab> {
     } else if (state == 'refunded') {
       widget.snack('❌ Airtime purchase failed. Your wallet refund was completed.');
     } else {
-      widget.snack('⏳ ${result['message'] ?? 'Airtime status is being verified. Do not submit another purchase.'}');
+      widget.snack((result['success'] == false && result['status'] == null ? '❌ ' : '⏳ ') + '${result['message'] ?? 'Airtime status is being verified. Do not submit another purchase.'}');
     }
   }
 
   @override
-  Widget build(BuildContext context) => widget.region.countryCode != "NG" ? Padding(padding: const EdgeInsets.all(32), child: Center(child: Text("📱 Airtime is not available for ${widget.region.country} yet.", textAlign: TextAlign.center, style: const TextStyle(color: _kMuted, fontSize: 15, fontWeight: FontWeight.w600)))) : SingleChildScrollView(
+  Widget build(BuildContext context) => SingleChildScrollView(
     padding: const EdgeInsets.all(20),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const Text('📱 Buy Airtime',
           style: TextStyle(color: Colors.white,
               fontSize: 18, fontWeight: FontWeight.w700)),
       const SizedBox(height: 20),
-      const Text('Select Network',
-          style: TextStyle(color: _kMuted,
-              fontSize: 13, fontWeight: FontWeight.w600)),
-      const SizedBox(height: 10),
-      _netGrid(widget.region.networks, _net,
-          (id) => setState(() => _net = id)),
-      const SizedBox(height: 16),
+      if (widget.region.countryCode == 'NG') ...[
+        const Text('Select Network',
+            style: TextStyle(color: _kMuted,
+                fontSize: 13, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 10),
+        _netGrid(widget.region.networks, _net,
+            (id) => setState(() => _net = id)),
+        const SizedBox(height: 16),
+      ],
       const Text('Phone Number',
           style: TextStyle(color: _kMuted,
               fontSize: 13, fontWeight: FontWeight.w600)),
