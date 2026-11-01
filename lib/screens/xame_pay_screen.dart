@@ -620,6 +620,14 @@ class _XamePayScreenState extends State<XamePayScreen>
             _homeCountry = hcRaw;
             if (_kRegions.any((r) => r.countryCode == hcRaw)) _serviceRegion = hcRaw;
           }
+          else {
+            // XAMEPAY_WALLET_REGION_V2: wallets with no stored home country derive it from their currency.
+            final dr = _kRegions.where((r) => r.currency == _currency);
+            if (dr.isNotEmpty) {
+              _homeCountry = dr.first.countryCode;
+              _serviceRegion = _homeCountry;
+            }
+          }
           _balance = (d['balance'] as num?)?.toDouble() ?? 0;
           if (newDisp.isNotEmpty &&
               RegExp(r'^[A-Z]{3}$').hasMatch(newDisp)) {
@@ -1567,6 +1575,7 @@ class _XamePayScreenState extends State<XamePayScreen>
 
   void _showSettings() {
     String tc = _serviceRegion, td = _dispCurrency;
+    String? regionErr; // XAMEPAY_WALLET_REGION_V2
     showModalBottomSheet(
       context: context, isScrollControlled: true, backgroundColor: _kCard,
       shape: const RoundedRectangleBorder(
@@ -1604,10 +1613,17 @@ class _XamePayScreenState extends State<XamePayScreen>
                 )).toList(),
                 onChanged: (v) {
                   if (v != null) {
-                    ss(() => tc = v);
+                    ss(() { tc = v; regionErr = null; });
                   }
                 },
               ),
+              // XAMEPAY_WALLET_REGION_V2: show the server's reason inside the sheet.
+              if (regionErr != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(regionErr!,
+                      style: const TextStyle(color: Color(0xFFFFB4A9), fontSize: 13)),
+                ),
               const SizedBox(height: 20),
               _sLabel('💱 Display Balance In'),
               const SizedBox(height: 4),
@@ -1681,12 +1697,12 @@ class _XamePayScreenState extends State<XamePayScreen>
                       );
                       final rd = jsonDecode(rr.body);
                       if (rd['success'] != true) {
-                        _snack('❌ ${rd['message'] ?? 'Could not change the wallet region'}');
+                        ss(() => regionErr = '${rd['message'] ?? 'Could not change the wallet region'}');
                         return;
                       }
                       await _loadWallet();
                     } catch (_) {
-                      _snack('❌ Network error. Region not changed.');
+                      ss(() => regionErr = 'Network error. Region not changed.');
                       return;
                     }
                   }
