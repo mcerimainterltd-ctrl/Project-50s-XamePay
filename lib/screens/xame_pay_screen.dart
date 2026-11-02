@@ -2865,6 +2865,34 @@ class _SendTabState extends State<_SendTab> {
     final storageKey = 'xamepay_bank_transfer_${widget.userId}';
 
     String txRef;
+    // XAMEPAY_BANK_STALE_REF_V1: before reusing a saved reference, ask the server what became of it.
+    {
+      final pre = storage.getString(storageKey);
+      if (pre != null) {
+        try {
+          final rec = jsonDecode(pre);
+          final ref = (rec is Map ? rec['reference'] : null)?.toString() ?? '';
+          if (RegExp(r'^[A-Za-z0-9._:-]{8,100}$').hasMatch(ref)) {
+            final sr = await http.get(
+              Uri.parse('${widget.serverUrl}/api/wallet/transfer-status/${Uri.encodeComponent(ref)}'),
+              headers: await AuthService().authenticatedHeaders(),
+            ).timeout(const Duration(seconds: 10));
+            if (sr.statusCode == 404) {
+              await storage.remove(storageKey);
+            } else if (sr.statusCode >= 200 && sr.statusCode < 300) {
+              final sd = jsonDecode(sr.body);
+              final st = (sd is Map ? sd['status'] : null)?.toString().toLowerCase() ?? '';
+              if (sd is Map && sd['pending'] == false &&
+                  (st == 'succeeded' || st == 'refunded' || st == 'failed')) {
+                await storage.remove(storageKey);
+                try { await widget.onSuccess(); } catch (_) {}
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
     final saved = storage.getString(storageKey);
     if (saved != null) {
       try {
