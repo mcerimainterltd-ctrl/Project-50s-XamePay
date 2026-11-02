@@ -1,11 +1,17 @@
 # XamePay open items (updated Nov 2, 2026)
 
 ## Waiting on a result or a person
+- Bank-transfer test after f99dc88c: read the Render log line 'send-bank provider reply'.
 - Build 50 test: stale bank-transfer reference no longer blocks new transfers.
 - Builds 48 and 49 tests: history symbols after a conversion; wallet-send details wording.
 - Reloadly: account setup fault (their side), live credentials, wallet currency and funding, rotate 2FA key.
 - Ghana airtime lookup needs working Reloadly credentials (Render log line "Intl quote failed").
 - Flutterwave dashboard: check Transfers for reference xame-1793460306722461; IP allow-list; NGN balance.
+
+## Done
+- Bank payouts closed for non-NGN wallets and provider reply logged (server f99dc88c).
+- Bank-transfer currency must match the wallet currency (server 0439eced).
+- Stale bank-transfer reference check (build 50).
 
 ## To build or fix
 - Per-currency bank fee table (bank sends from non-NGN wallets blocked until it exists).
