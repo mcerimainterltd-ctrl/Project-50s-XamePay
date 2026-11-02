@@ -1625,9 +1625,12 @@ class _XamePayScreenState extends State<XamePayScreen>
               maxLength: 6,
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
+                filled: false,
                 labelText: 'Transaction PIN',
                 labelStyle: TextStyle(color: Colors.white54),
                 counterText: '',
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE6C978))),
               ),
             ),
             if (err != null)
