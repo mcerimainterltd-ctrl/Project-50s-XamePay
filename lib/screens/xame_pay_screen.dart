@@ -77,6 +77,7 @@ class WalletTx {
   final double? sentAmount, recvAmount, fxRate, principal, fee;
   final int? cashback;
   final String? sentCurrency, recvCurrency, recipient;
+  final String txCurrency; // XAMEPAY_TX_CURRENCY_V1
   final String txSenderName, txSenderBankName, txSenderAccountNumber, txRecipientName, txBankName, txAccountNumber, txRecipientBankName, txRecipientAccountNumber;
   WalletTx.fromJson(Map<String, dynamic> j)
       : id               = j['_id']?.toString() ?? j['id']?.toString() ?? '${DateTime.now().millisecondsSinceEpoch}',
@@ -95,6 +96,7 @@ class WalletTx {
         fee              = (j['fee']        as num?)?.toDouble(),
         cashback         = (j['cashback']   as num?)?.toInt(),
         sentCurrency     = j['sentCurrency']?.toString(),
+        txCurrency       = (j['currency']?.toString() ?? '').trim().toUpperCase(),
         txSenderName            = j['senderName']?.toString()              ?? '',
         txSenderBankName        = j['senderBankName']?.toString()          ?? '',
         txSenderAccountNumber   = j['senderAccountNumber']?.toString()     ?? '',
@@ -410,6 +412,13 @@ const _kCurrToCC = {
 RegionInfo _region(String c) =>
     _kRegions.firstWhere((r) => r.currency == c,
         orElse: () => _kRegions.first);
+
+// XAMEPAY_TX_CURRENCY_V1: draw a history or receipt amount in the currency it was made in.
+// Entries with no stamped currency use the wallet's current currency.
+String _fmtTx(WalletTx tx, double n, String Function(double) fallback) {
+  if (tx.txCurrency.isEmpty) return fallback(n);
+  return '${_region(tx.txCurrency).symbol}${_XamePayScreenState._fmtN(n)}';
+}
 
 // ── CURRENCY CONVERTER (open.er-api.com — free, no key) ─────────────────────
 
@@ -5038,7 +5047,7 @@ class _HistoryTabState extends State<_HistoryTab> {
             ]),
             const SizedBox(height: 16),
             // Amount — show principal (before fee) when available, not the total debited
-            Center(child: Text(fmt(tx.principal ?? tx.amount),
+            Center(child: Text(_fmtTx(tx, tx.principal ?? tx.amount, fmt),
                 style: TextStyle(
                     color: tx.type == 'credit' ? _kTeal : const Color(0xFFFF6464),
                     fontSize: 36, fontWeight: FontWeight.w800))),
@@ -5059,13 +5068,13 @@ class _HistoryTabState extends State<_HistoryTab> {
 
               // ── Transparent fee/cashback breakdown ────────────────────
               if (tx.principal != null) {
-                widgets.add(_receiptRowLight('Amount', fmt(tx.principal!)));
+                widgets.add(_receiptRowLight('Amount', _fmtTx(tx, tx.principal!, fmt)));
               }
               if (tx.fee != null && tx.fee! > 0) {
-                widgets.add(_receiptRowLight('Service Fee', fmt(tx.fee!)));
+                widgets.add(_receiptRowLight('Service Fee', _fmtTx(tx, tx.fee!, fmt)));
               }
               if (tx.principal != null && tx.fee != null) {
-                widgets.add(_receiptRowLight('Total Debited', fmt(tx.principal! + tx.fee!)));
+                widgets.add(_receiptRowLight('Total Debited', _fmtTx(tx, tx.principal! + tx.fee!, fmt)));
               }
               if (tx.cashback != null && tx.cashback! > 0) {
                 final ngnEquiv = tx.cashback! * 0.1;
@@ -5210,7 +5219,7 @@ class _HistoryTabState extends State<_HistoryTab> {
             child: Center(child: Text(tx.icon,
                 style: const TextStyle(fontSize: 26)))),
           const SizedBox(height: 12),
-          Text(fmt(tx.principal ?? tx.amount),
+          Text(_fmtTx(tx, tx.principal ?? tx.amount, fmt),
               style: TextStyle(
                   color: tx.type == 'credit' ? _kTeal : const Color(0xFFFF6464),
                   fontSize: 32, fontWeight: FontWeight.w800)),
@@ -5231,13 +5240,13 @@ class _HistoryTabState extends State<_HistoryTab> {
 
             // ── Transparent fee/cashback breakdown ──────────────────────
             if (tx.principal != null) {
-              widgets.add(_receiptRow('Amount', fmt(tx.principal!)));
+              widgets.add(_receiptRow('Amount', _fmtTx(tx, tx.principal!, fmt)));
             }
             if (tx.fee != null && tx.fee! > 0) {
-              widgets.add(_receiptRow('Service Fee', fmt(tx.fee!)));
+              widgets.add(_receiptRow('Service Fee', _fmtTx(tx, tx.fee!, fmt)));
             }
             if (tx.principal != null && tx.fee != null) {
-              widgets.add(_receiptRow('Total Debited', fmt(tx.principal! + tx.fee!)));
+              widgets.add(_receiptRow('Total Debited', _fmtTx(tx, tx.principal! + tx.fee!, fmt)));
             }
             if (tx.cashback != null && tx.cashback! > 0) {
               final ngnEquiv = tx.cashback! * 0.1;
@@ -5377,7 +5386,7 @@ class _HistoryTabState extends State<_HistoryTab> {
                           const Text('Transaction Receipt', style: TextStyle(color: Color(0xFF888888), fontSize: 11)),
                         ]),
                         const SizedBox(height: 16),
-                        Center(child: Text(fmt(tx.amount), style: TextStyle(color: tx.type == 'credit' ? _kTeal : const Color(0xFFFF6464), fontSize: 36, fontWeight: FontWeight.w800))),
+                        Center(child: Text(_fmtTx(tx, tx.amount, fmt), style: TextStyle(color: tx.type == 'credit' ? _kTeal : const Color(0xFFFF6464), fontSize: 36, fontWeight: FontWeight.w800))),
                         Center(child: Text(tx.status, style: TextStyle(color: tx.status == 'Completed' ? _kTeal : const Color(0xFFF0A500), fontSize: 14))),
                         const SizedBox(height: 16),
                         const Divider(color: Color(0xFFE0E0E0)),
@@ -5486,7 +5495,7 @@ class _HistoryTabState extends State<_HistoryTab> {
                         fontSize: 11, fontWeight: FontWeight.w500)),
               ])),
               const SizedBox(width: 8),
-              Text('${cr ? "+" : "-"}${widget.fmt(tx.amount)}',
+              Text('${cr ? "+" : "-"}${_fmtTx(tx, tx.amount, widget.fmt)}',
                   style: TextStyle(
                       color: cr ? _kTeal : const Color(0xFFFF6464),
                       fontSize: 15, fontWeight: FontWeight.w700)),
