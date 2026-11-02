@@ -1573,6 +1573,109 @@ class _XamePayScreenState extends State<XamePayScreen>
     );
   }
 
+  // XAMEPAY_CONVERT_UI_V1: quote, PIN and confirm for a whole-wallet currency conversion.
+  Future<bool> _convertFlow(String country, void Function(String) showErr) async {
+    if (!_pinEnabled) {
+      showErr('Turn on your transaction PIN (below) to convert your balance.');
+      return false;
+    }
+    Map<String, dynamic> q;
+    try {
+      final r = await http.get(
+        Uri.parse('${widget.serverUrl}/api/wallet/convert/quote').replace(
+            queryParameters: {'userId': widget.userId, 'country': country}),
+        headers: await AuthService().authenticatedHeaders(),
+      ).timeout(const Duration(seconds: 15));
+      final d = jsonDecode(r.body);
+      if (d is! Map || d['success'] != true || d['needed'] != true ||
+          (d['token'] ?? '').toString().isEmpty) {
+        showErr((d is Map ? d['message'] : null)?.toString() ?? 'Could not get a conversion quote.');
+        return false;
+      }
+      q = Map<String, dynamic>.from(d);
+    } catch (_) {
+      showErr('Network error. Could not get a quote.');
+      return false;
+    }
+    final pinCtrl = TextEditingController();
+    String? err;
+    bool busy = false;
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dctx) => StatefulBuilder(builder: (dctx, ds) => AlertDialog(
+        backgroundColor: const Color(0xFF062B21),
+        title: const Text('Convert your wallet', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${q['from']} ${(q['balance'] as num).toStringAsFixed(2)}  →  ${q['to']} ${(q['receive'] as num).toStringAsFixed(2)}',
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text('Rate: 1 ${q['from']} = ${(q['destPerSource'] as num).toStringAsPrecision(5)} ${q['to']}',
+                style: const TextStyle(color: Colors.white70, fontSize: 13)),
+            Text('Includes a ${q['marginPercent']}% XamePay margin. This quote is valid for about 90 seconds.',
+                style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: pinCtrl,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              maxLength: 6,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Transaction PIN',
+                labelStyle: TextStyle(color: Colors.white54),
+                counterText: '',
+              ),
+            ),
+            if (err != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(err!, style: const TextStyle(color: Color(0xFFFFB4A9), fontSize: 13)),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: busy ? null : () => Navigator.pop(dctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE6C978), foregroundColor: Colors.black),
+            onPressed: busy ? null : () async {
+              ds(() { busy = true; err = null; });
+              try {
+                final r = await http.post(
+                  Uri.parse('${widget.serverUrl}/api/wallet/convert/confirm'),
+                  headers: await AuthService().authenticatedHeaders(),
+                  body: jsonEncode({
+                    'userId': widget.userId,
+                    'token': q['token'],
+                    'pin': pinCtrl.text.trim(),
+                  }),
+                ).timeout(const Duration(seconds: 25));
+                final d = jsonDecode(r.body);
+                if (d is Map && d['success'] == true) {
+                  if (dctx.mounted) Navigator.pop(dctx, true);
+                  return;
+                }
+                ds(() { busy = false; err = (d is Map ? d['message'] : null)?.toString() ?? 'Conversion failed.'; });
+              } catch (_) {
+                ds(() { busy = false; err = 'Network error. Close this and check your balance before trying again.'; });
+              }
+            },
+            child: const Text('Confirm'),
+          ),
+        ],
+      )),
+    );
+    pinCtrl.dispose();
+    return ok == true;
+  }
+
   void _showSettings() {
     String tc = _serviceRegion, td = _dispCurrency;
     String? regionErr; // XAMEPAY_WALLET_REGION_V2
@@ -1696,7 +1799,10 @@ class _XamePayScreenState extends State<XamePayScreen>
                         body: jsonEncode({'userId': widget.userId, 'country': tc}),
                       );
                       final rd = jsonDecode(rr.body);
-                      if (rd['success'] != true) {
+                      if (rd['code'] == 'CONVERSION_REQUIRED') {
+                        final done = await _convertFlow(tc, (m) => ss(() => regionErr = m));
+                        if (!done) return;
+                      } else if (rd['success'] != true) {
                         ss(() => regionErr = '${rd['message'] ?? 'Could not change the wallet region'}');
                         return;
                       }
