@@ -5186,6 +5186,7 @@ class _HistoryTabState extends State<_HistoryTab> {
       txRef:               tx.flwRef.isNotEmpty ? tx.flwRef : tx.id,
       sessionId:           tx.id,
       paymentMethod:       'XamePay Wallet',
+      walletTransfer: tx.txBankName.isEmpty && tx.txAccountNumber.isEmpty && tx.txSenderBankName.isEmpty && tx.txSenderAccountNumber.isEmpty && tx.txRecipientBankName.isEmpty && tx.txRecipientAccountNumber.isEmpty,
       ts:                  DateTime.tryParse(tx.ts) ?? DateTime.now(),
       fmt:                 widget.fmt,
       description:         tx.label,

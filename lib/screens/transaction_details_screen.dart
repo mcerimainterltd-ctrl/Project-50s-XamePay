@@ -31,6 +31,7 @@ class TransactionDetailsScreen extends StatelessWidget {
   final String txRef;
   final String sessionId;
   final String paymentMethod;
+  final bool walletTransfer; // XAMEPAY_WALLET_DETAILS_V1
   final DateTime ts;
   final String Function(double) fmt;
   /// Live transfer status: 'processing' | 'succeeded' | 'failed'.
@@ -58,6 +59,7 @@ class TransactionDetailsScreen extends StatelessWidget {
     required this.txRef,
     required this.sessionId,
     required this.paymentMethod,
+    this.walletTransfer = false,
     required this.ts,
     required this.fmt,
     this.liveStatus,
@@ -107,7 +109,7 @@ class TransactionDetailsScreen extends StatelessWidget {
               Container(
                 width: 48, height: 48,
                 decoration: const BoxDecoration(color: Color(0x1A00B0A0), shape: BoxShape.circle),
-                child: const Icon(Icons.account_balance_rounded, color: _kTeal, size: 24),
+                child: Icon(walletTransfer ? Icons.account_balance_wallet_rounded : Icons.account_balance_rounded, color: _kTeal, size: 24),
               ),
               const SizedBox(height: 14),
               Text(description,
@@ -117,12 +119,12 @@ class TransactionDetailsScreen extends StatelessWidget {
               Text(fmt(amount),
                   style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800)),
               const SizedBox(height: 4),
-              _LiveStatusBlock(live: liveStatus, ts: ts, fmtCompact: _fmtCompact),
+              _LiveStatusBlock(live: liveStatus, ts: ts, fmtCompact: _fmtCompact, walletTransfer: walletTransfer),
               const SizedBox(height: 16),
               ValueListenableBuilder<String>(
                 valueListenable: liveStatus ?? _kNoLive,
                 builder: (_, st, note) =>
-                    st == 'failed' ? const SizedBox.shrink() : note!,
+                    (st == 'failed' || walletTransfer) ? const SizedBox.shrink() : note!,
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
@@ -157,7 +159,7 @@ class TransactionDetailsScreen extends StatelessWidget {
               _detailRow('Transaction No.', txRef, copyable: true, context: context),
               _detailRow('Payment Method', paymentMethod),
               _detailRow('Transaction Date', _fmtTs(ts)),
-              _detailRow('Session ID', sessionId, copyable: true, context: context),
+              if (!walletTransfer) _detailRow('Session ID', sessionId, copyable: true, context: context),
             ]),
           ),
           const SizedBox(height: 16),
@@ -442,10 +444,12 @@ class _LiveStatusBlock extends StatelessWidget {
   final ValueListenable<String>? live;
   final DateTime ts;
   final String Function(DateTime) fmtCompact;
+  final bool walletTransfer;
   const _LiveStatusBlock({
     required this.live,
     required this.ts,
     required this.fmtCompact,
+    this.walletTransfer = false,
   });
 
   @override
@@ -477,9 +481,9 @@ class _LiveStatusBlock extends StatelessWidget {
       Row(children: [
         _StatusDot(label: 'Payment\nsuccessful', time: fmtCompact(ts), active: true),
         Expanded(child: Container(height: 2, color: _kTeal)),
-        _StatusDot(label: 'Processing\nby bank', time: fmtCompact(ts), active: !failed),
+        _StatusDot(label: walletTransfer ? 'Processing' : 'Processing\nby bank', time: fmtCompact(ts), active: !failed),
         Expanded(child: Container(height: 2, color: done ? _kTeal : Colors.white24)),
-        _StatusDot(label: 'Received\nby bank', time: done ? receivedAt : '', active: done),
+        _StatusDot(label: walletTransfer ? 'Received' : 'Received\nby bank', time: done ? receivedAt : '', active: done),
       ]),
     ]);
   }
