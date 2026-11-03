@@ -142,6 +142,7 @@ class _XamePayHomeState extends ConsumerState<_XamePayHome>
     if (user != null) {
       if (await AppLockService.hasLock()) {
         _locked = true;
+        AppLockService.syncLocalToServer();
       } else {
         _needsSetup = true;
         await ref.read(socketServiceProvider).connect(user.xameId);
@@ -156,11 +157,21 @@ class _XamePayHomeState extends ConsumerState<_XamePayHome>
   Future<void> _onAuthenticated(XameUser user) async {
     if (!mounted) return;
 
-    await AppLockService.clear();
+    // Keep the owner's permanent code unless a deliberate reset was requested.
+    var restored = false;
+    if (!await AppLockService.resetRequested()) {
+      restored = await AppLockService.restoreFromServer() == 1;
+    }
+    if (!restored) await AppLockService.clear();
     if (!mounted) return;
-    setState(() => _needsSetup = true);
+    setState(() => _needsSetup = !restored);
     ref.read(currentUserProvider.notifier).state = user;
     await ref.read(socketServiceProvider).connect(user.xameId);
+  }
+
+  Future<void> _forgotCode() async {
+    await AppLockService.requestReset();
+    await _logout();
   }
 
   Future<void> _logout() async {
@@ -219,7 +230,7 @@ class _XamePayHomeState extends ConsumerState<_XamePayHome>
           }
           await ref.read(socketServiceProvider).connect(user.xameId);
         },
-        onReset: _logout,
+        onReset: _forgotCode,
       );
     }
 
