@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:path_provider/path_provider.dart';
 import 'transaction_details_screen.dart';
+import 'app_code_change_screen.dart';
 import 'dart:io';
 import '../core/services/push_service.dart';
 import '../core/services/auth_service.dart';
@@ -1893,6 +1894,34 @@ class _XamePayScreenState extends State<XamePayScreen>
                     },
                   ),
                 ]),
+              ),
+
+              const SizedBox(height: 12),
+              InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  if (!mounted) return;
+                  Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const AppCodeChangeScreen()));
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0E4434),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Row(children: const [
+                    Icon(Icons.pin_outlined, color: Color(0xFFE6C978), size: 20),
+                    SizedBox(width: 12),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('App opening code', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                      Text('Change your 6-digit code', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                    ])),
+                    Icon(Icons.chevron_right, color: Colors.white38),
+                  ]),
+                ),
               ),
             ],
           ),

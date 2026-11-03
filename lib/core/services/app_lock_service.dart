@@ -144,6 +144,38 @@ class AppLockService {
     } catch (_) {}
   }
 
+  /// Deliberate change from inside the app. Returns null on success,
+  /// otherwise a message to show. Server is updated first so both stay in step.
+  static Future<String?> changeCode(String current, String next) async {
+    if (!RegExp(r'^\d{6}$').hasMatch(next)) {
+      return 'The new code must be exactly 6 digits.';
+    }
+    if (await failsLeft() <= 0) {
+      return 'Too many wrong attempts. Sign out and use Forgot code.';
+    }
+    if (!await verify(current)) {
+      final left = await failsLeft();
+      return left > 0
+          ? 'Current code is wrong. $left ${left == 1 ? 'attempt' : 'attempts'} left.'
+          : 'Too many wrong attempts. Sign out and use Forgot code.';
+    }
+    final r = Random.secure();
+    final salt = base64Encode(List<int>.generate(16, (_) => r.nextInt(256)));
+    final hashed = _hash(next, salt);
+    try {
+      final api = await _api();
+      if (api == null) return 'You are signed out. Sign in again first.';
+      await api.post('/api/app-lock/set',
+          data: {'salt': salt, 'hash': hashed, 'replace': true});
+    } catch (_) {
+      return 'Could not reach the server. Check your connection and try again.';
+    }
+    await _s.write(key: _kSalt, value: salt);
+    await _s.write(key: _kHash, value: hashed);
+    await _s.write(key: _kFails, value: '0');
+    return null;
+  }
+
   static Future<void> requestReset() => _s.write(key: _kReset, value: '1');
   static Future<bool> resetRequested() async =>
       (await _s.read(key: _kReset)) == '1';
