@@ -9,11 +9,18 @@
 - Flutterwave dashboard: check Transfers for reference xame-1793460306722461; IP allow-list; NGN balance.
 
 ## Done
+- Admin routes fail closed without ADMIN_SECRET, unauthenticated admin routes gated (server cfbda63d, 6eb5f77b, 4b24df9d).
+- Outgoing transfers settle from Flutterwave's transfer.completed webhook after re-reading the transfer (server c92f7d2e); admin ledger, stuck-transfer and settle routes; 20s timeout on the transfer call.
 - Bank payouts closed for non-NGN wallets and provider reply logged (server f99dc88c).
 - Bank-transfer currency must match the wallet currency (server 0439eced).
 - Stale bank-transfer reference check (build 50).
 
 ## To build or fix
+- Transfers that time out have no stored provider ID, so neither the webhook nor the status route can settle them; they stay unknown.
+- The admin settle route marks a transfer succeeded without asking Flutterwave first (never refunds); it should verify with Flutterwave when it has an ID.
+- Compare the admin header and the Flutterwave webhook signature in constant time.
+- Android App Links lists one certificate fingerprint; add the Play app-signing one if Play installs are in use.
+- Audit remaining admin routes with the read-only classifier (some use other checks).
 - Per-currency bank fee table (bank sends from non-NGN wallets blocked until it exists).
 - Creator payouts credit fixed naira sums into any wallet and filter by userId (check what it does today).
 - Call-credit top-up moves wallet amount one-to-one into call credits, whatever the currency.
