@@ -564,7 +564,7 @@ class _XamePayScreenState extends State<XamePayScreen>
   Future<void> _loadPrefs() async {
     final p = await SharedPreferences.getInstance();
     setState(() {
-      _dispCurrency = p.getString('wallet:dispCurrency') ?? _currency;
+      _dispCurrency = (p.getString('wallet:dispCurrency') ?? _currency) == 'CMR' ? 'XAF' : (p.getString('wallet:dispCurrency') ?? _currency); // XAMEPAY_CMR_MAP_V1
       final savedRegion = p.getString('wallet:serviceRegion') ?? 'NG';
       // Migrate the previous currency-based preference to a unique country code.
       final savedRegionInfo = _kRegions.where(
@@ -598,7 +598,7 @@ class _XamePayScreenState extends State<XamePayScreen>
       if (d['currency'] != null && p.getString('wallet:currency') == null)
         _currency = d['currency'];
         if (d['dispCurrency'] != null && (d['dispCurrency'] as String).isNotEmpty) {
-          _dispCurrency = d['dispCurrency'];
+          _dispCurrency = d['dispCurrency'].toString() == 'CMR' ? 'XAF' : d['dispCurrency'].toString();
           await p.setString('wallet:dispCurrency', _dispCurrency);
         }
     } catch (_) {}
@@ -641,7 +641,7 @@ class _XamePayScreenState extends State<XamePayScreen>
           _balance = (d['balance'] as num?)?.toDouble() ?? 0;
           if (newDisp.isNotEmpty &&
               RegExp(r'^[A-Z]{3}$').hasMatch(newDisp)) {
-            _dispCurrency = newDisp;
+            _dispCurrency = newDisp == 'CMR' ? 'XAF' : newDisp;
           }
           _txs = (d['transactions'] as List? ?? [])
               .map((t) => WalletTx.fromJson(t)).toList()
@@ -1690,7 +1690,7 @@ class _XamePayScreenState extends State<XamePayScreen>
   }
 
   void _showSettings() {
-    String tc = _serviceRegion, td = _dispCurrency;
+    String tc = _serviceRegion, td = _dispCurrency == 'CMR' ? 'XAF' : _dispCurrency;
     String? regionErr; // XAMEPAY_WALLET_REGION_V2
     showModalBottomSheet(
       context: context, isScrollControlled: true, backgroundColor: _kCard,
