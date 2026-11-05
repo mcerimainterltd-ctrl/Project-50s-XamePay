@@ -1,6 +1,7 @@
 # XamePay open items (updated Nov 2, 2026)
 
 ## Waiting on a result or a person
+- A pending transaction blocks the Ghana region switch on one test wallet (balance 1041.60 vs 11301.60 earlier): find it with admin stuck-transfers, walletbillledgers and walletcreditholds; settle with the admin route after checking Flutterwave.
 - Bank-transfer test after f99dc88c: read the Render log line 'send-bank provider reply'.
 - Build 50 test: stale bank-transfer reference no longer blocks new transfers.
 - Builds 48 and 49 tests: history symbols after a conversion; wallet-send details wording.
