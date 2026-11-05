@@ -9,6 +9,7 @@
 - Flutterwave dashboard: check Transfers for reference xame-1793460306722461; IP allow-list; NGN balance.
 
 ## Done
+- Background sweep settles stuck outgoing transfers that have a Flutterwave ID, via the verified settle function (server, Nov 5).
 - Background reconciler settles pending airtime, data and bill purchases every 5 minutes, never refunding on unclear results (server 84ea8b33).
 - Admin settle route verifies with Flutterwave; a transfer without a provider ID needs verifiedOutcome paid or never_sent (server 3fb960f7).
 - Admin routes fail closed without ADMIN_SECRET, unauthenticated admin routes gated (server cfbda63d, 6eb5f77b, 4b24df9d).
