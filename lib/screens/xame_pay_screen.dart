@@ -495,6 +495,7 @@ class _XamePayScreenState extends State<XamePayScreen>
 
   String _currency = 'NGN', _dispCurrency = 'NGN';
   String _homeCountry = ''; // XAMEPAY_WALLET_REGION_V1
+  Set<String> _openCountries = {}; // XAMEPAY_OPEN_COUNTRIES_V1
   String _serviceRegion = 'NG';
   double _balance  = 0;
   Map<String, String>? _myVirtualAccount;
@@ -589,6 +590,7 @@ class _XamePayScreenState extends State<XamePayScreen>
   }
 
   Future<void> _init() async {
+    _loadOpenCountries();
     try {
       final r = await http
           .get(Uri.parse('${widget.serverUrl}/api/wallet/pubkey'))
@@ -1689,6 +1691,29 @@ class _XamePayScreenState extends State<XamePayScreen>
     return ok == true;
   }
 
+  // XAMEPAY_OPEN_COUNTRIES_V1: mark countries XamePay is not open in yet, using the server's list.
+  Future<void> _loadOpenCountries() async {
+    try {
+      final r = await http.get(Uri.parse('${widget.serverUrl}/api/xamepay/regions'))
+          .timeout(const Duration(seconds: 8));
+      final d = jsonDecode(r.body);
+      if (d is Map && d['success'] == true && d['regions'] is List) {
+        final codes = (d['regions'] as List)
+            .whereType<Map>()
+            .map((e) => (e['code'] ?? '').toString().toUpperCase())
+            .where((c) => c.isNotEmpty)
+            .toSet();
+        if (mounted) setState(() => _openCountries = codes);
+      }
+    } catch (_) {}
+  }
+
+  String _regionLabel(RegionInfo r) {
+    final base = '${r.country} (${r.currency})';
+    if (_openCountries.isEmpty || _openCountries.contains(r.countryCode)) return base;
+    return '$base - coming soon';
+  }
+
   void _showSettings() {
     String tc = _serviceRegion, td = _dispCurrency == 'CMR' ? 'XAF' : _dispCurrency;
     String? regionErr; // XAMEPAY_WALLET_REGION_V2
@@ -1721,7 +1746,7 @@ class _XamePayScreenState extends State<XamePayScreen>
                   child: Row(children: [
                     Text(r.flag, style: const TextStyle(fontSize: 18)),
                     const SizedBox(width: 10),
-                    Expanded(child: Text('${r.country} (${r.currency})',
+                    Expanded(child: Text(_regionLabel(r),
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             color: Colors.white, fontSize: 14))),
