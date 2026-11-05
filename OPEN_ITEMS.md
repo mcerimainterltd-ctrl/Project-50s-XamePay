@@ -18,7 +18,7 @@
 - Stale bank-transfer reference check (build 50).
 
 ## To build or fix
-- App lock review done. Stored hash is encrypted at rest once APP_LOCK_ENCRYPTION_KEY is set in Render (server 2a625324). Still open: the server does not check the old code when a code is replaced (needs a recent-session check); the 5-attempt limit is enforced only on the phone; setup and change screens not yet reviewed.
+- App lock review done. Stored hash is encrypted at rest once XAMEPAY_APP_LOCK_ENCRYPTION_KEY is set in Render (server 2a625324). Still open: the server does not check the old code when a code is replaced (needs a recent-session check); the 5-attempt limit is enforced only on the phone; setup and change screens not yet reviewed.
 - Transfers that time out have no stored provider ID, so neither the webhook nor the status route can settle them; they stay unknown.
 - Compare the Flutterwave webhook signature in constant time (both wallet webhook routes).
 - Per-currency bank fee table (bank sends from non-NGN wallets blocked until it exists).
