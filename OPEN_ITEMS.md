@@ -9,6 +9,7 @@
 - Flutterwave dashboard: check Transfers for reference xame-1793460306722461; IP allow-list; NGN balance.
 
 ## Done
+- Saved display currency CMR maps to XAF when read (build 53).
 - Background sweep settles stuck outgoing transfers that have a Flutterwave ID, via the verified settle function (server, Nov 5).
 - Background reconciler settles pending airtime, data and bill purchases every 5 minutes, never refunding on unclear results (server 84ea8b33).
 - Admin settle route verifies with Flutterwave; a transfer without a provider ID needs verifiedOutcome paid or never_sent (server 3fb960f7).
@@ -26,7 +27,6 @@
 - Per-currency bank fee table (bank sends from non-NGN wallets blocked until it exists).
 - Call-credit top-up moves wallet amount one-to-one into call credits, whatever the currency.
 - creditWallet and debitWallet helpers have no currency check; review their callers.
-- Saved display currency CMR needs mapping to XAF.
 - Virtual-account currency check runs before login; add authentication.
 - Set SQUAD_BASE_URL and MONNIFY_BASE_URL explicitly (Squad VA route defaults to live, others to sandbox).
 - International router corridor rates are static; quotes should read live rates.
