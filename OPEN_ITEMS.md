@@ -1,6 +1,7 @@
 # XamePay open items (updated Nov 2, 2026)
 
 ## Waiting on a result or a person
+- Airtime purchase xp1793557376274059 (NGN 50, Nov 1) stuck pending with providerStatus history_lookup_incomplete: run admin bill-lookup, check the Flutterwave dashboard, then settle-bill paid or never_sent; then fix the bills history check if empty results count as failure.
 - A pending transaction blocks the Ghana region switch on one test wallet (balance 1041.60 vs 11301.60 earlier): find it with admin stuck-transfers, walletbillledgers and walletcreditholds; settle with the admin route after checking Flutterwave.
 - Bank-transfer test after f99dc88c: read the Render log line 'send-bank provider reply'.
 - Build 50 test: stale bank-transfer reference no longer blocks new transfers.
