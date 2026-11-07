@@ -3664,6 +3664,33 @@ Future<Map<String, dynamic>> _submitRecoverableWalletBill({
     }
   }
 
+  // XAMEPAY_BILL_STALE_REF_V1: before refusing because of a saved reference, ask the server what became of it.
+  // No record or a final result clears it; a genuinely pending purchase keeps blocking.
+  if (saved != null) {
+    final oldRef = (saved['reference'] ?? '').toString();
+    if (RegExp(r'^[A-Za-z0-9_-]{12,128}$').hasMatch(oldRef)) {
+      try {
+        final hdrs = await AuthService().authenticatedHeaders();
+        final sr = await http.get(
+          Uri.parse('$serverUrl/api/wallet/bills/status/${Uri.encodeComponent(oldRef)}')
+              .replace(queryParameters: {'userId': userId}),
+          headers: hdrs,
+        ).timeout(timeout);
+        dynamic sd;
+        try { sd = jsonDecode(sr.body); } catch (_) { sd = null; }
+        final st = (sd is Map ? sd['status'] : null)?.toString().toLowerCase() ?? '';
+        final code = (sd is Map ? sd['code'] : null)?.toString() ?? '';
+        final gone = sr.statusCode == 404 && code == 'WALLET_BILL_NOT_FOUND';
+        final settled = sr.statusCode >= 200 && sr.statusCode < 300 &&
+            (st == 'succeeded' || st == 'refunded');
+        if (gone || settled) {
+          await prefs.remove(key);
+          saved = null;
+        }
+      } catch (_) {}
+    }
+  }
+
   if (saved != null) {
     reference = (saved['reference'] ?? '').toString();
     final oldBody = saved['body'];
