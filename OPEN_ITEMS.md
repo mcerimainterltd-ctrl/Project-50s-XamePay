@@ -32,7 +32,7 @@
 - Virtual-account currency check runs before login; add authentication.
 - Set SQUAD_BASE_URL and MONNIFY_BASE_URL explicitly (Squad VA route defaults to live, others to sandbox).
 - International router corridor rates are static; quotes should read live rates.
-- Cross-currency sends between XamePay users (blocked by guard until built).
+- Cross-currency sends between XamePay users: server routes and app dialog built (build 55); off until XAMEPAY_CROSSSEND_ENABLED=true; test with two accounts before enabling for anyone else.
 - Per-currency balances for partial conversions (large change).
 - Second rate partner or locked-quote FX (Flutterwave v4).
 
