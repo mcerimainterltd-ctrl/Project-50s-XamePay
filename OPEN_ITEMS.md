@@ -1,7 +1,8 @@
 # XamePay open items (updated Nov 2, 2026)
 
 ## Waiting on a result or a person
-- Airtime purchase xp1793557376274059 (NGN 50, Nov 1) stuck pending with providerStatus history_lookup_incomplete: run admin bill-lookup, check the Flutterwave dashboard, then settle-bill paid or never_sent; then fix the bills history check if empty results count as failure.
+- Airtime, data and bills: Flutterwave shows no bill history at all. Make one small airtime purchase and read the Render log line 'bill provider reply' to see why bills never complete.
+- Bank transfers completed on Nov 2, 3 and 5; confirm whether any still fail, and what the app said.
 - A pending transaction blocks the Ghana region switch on one test wallet (balance 1041.60 vs 11301.60 earlier): find it with admin stuck-transfers, walletbillledgers and walletcreditholds; settle with the admin route after checking Flutterwave.
 - Bank-transfer test after f99dc88c: read the Render log line 'send-bank provider reply'.
 - Build 50 test: stale bank-transfer reference no longer blocks new transfers.
@@ -11,6 +12,7 @@
 - Flutterwave dashboard: check Transfers for reference xame-1793460306722461; IP allow-list; NGN balance.
 
 ## Done
+- Stuck purchase xp1793557376274059 refunded with the admin settle-bill route; settlement now works when the wallet history entry has aged out; admin pending-wallet-items and bill-lookup routes (server, Nov 6).
 - Saved display currency CMR maps to XAF when read (build 53).
 - Background sweep settles stuck outgoing transfers that have a Flutterwave ID, via the verified settle function (server, Nov 5).
 - Background reconciler settles pending airtime, data and bill purchases every 5 minutes, never refunding on unclear results (server 84ea8b33).
