@@ -2611,10 +2611,191 @@ class _SendTabState extends State<_SendTab> {
     } catch (_) {}
   }
 
+  // XAMEPAY_CROSSSEND_UI_V1: sending to a wallet in another currency: quote, PIN, confirm.
+  // Returns 'none' (continue the normal send), 'done' (sent) or 'stop' (message shown or cancelled).
+  Future<String> _crossSendFlow() async {
+    final recipient = _selContact;
+    final amount = _amount;
+    if (recipient == null) return 'none';
+    Map<String, dynamic> q;
+    try {
+      final r = await http.get(
+        Uri.parse('${widget.serverUrl}/api/wallet/p2p/quote').replace(
+            queryParameters: {
+              'userId': widget.userId,
+              'recipientId': recipient,
+              'amount': amount.toString(),
+            }),
+        headers: await AuthService().authenticatedHeaders(),
+      ).timeout(const Duration(seconds: 12));
+      dynamic d;
+      try { d = jsonDecode(r.body); } catch (_) { d = null; }
+      if (d is! Map) return 'none';
+      if (d['code'] != null && d['success'] != true) {
+        widget.snack('❌ ${d['message'] ?? 'Could not prepare this transfer.'}');
+        return 'stop';
+      }
+      if (d['success'] != true || d['enabled'] != true || d['needed'] != true ||
+          (d['token'] ?? '').toString().isEmpty) {
+        return 'none';
+      }
+      q = Map<String, dynamic>.from(d);
+    } catch (_) {
+      widget.snack('❌ Network error. Could not check the recipient wallet.');
+      return 'stop';
+    }
+    if (!widget.pinEnabled) {
+      widget.snack('Turn on your transaction PIN in Settings to send across currencies.');
+      return 'stop';
+    }
+    if (!mounted) return 'stop';
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'xamepay_crosssend_${widget.userId}';
+    final fp = jsonEncode([widget.userId, recipient, amount]);
+    final pinCtrl = TextEditingController();
+    String? err;
+    bool busy = false;
+    Map<String, dynamic>? sent;
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dctx) => StatefulBuilder(builder: (dctx, ds) => AlertDialog(
+        backgroundColor: const Color(0xFF062B21),
+        title: const Text('Send across currencies', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('To: $recipient', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+            const SizedBox(height: 8),
+            Text('You send ${q['from']} ${(q['amount'] as num).toStringAsFixed(2)} + fee ${(q['fee'] as num).toStringAsFixed(2)}',
+                style: const TextStyle(color: Colors.white, fontSize: 14)),
+            const SizedBox(height: 4),
+            Text('Recipient gets ${q['to']} ${(q['receive'] as num).toStringAsFixed(2)}',
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text('Rate: 1 ${q['from']} = ${(q['destPerSource'] as num).toStringAsPrecision(5)} ${q['to']}',
+                style: const TextStyle(color: Colors.white70, fontSize: 13)),
+            Text('Includes a ${q['marginPercent']}% XamePay margin. This quote is valid for about 90 seconds.',
+                style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: pinCtrl,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              maxLength: 6,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                filled: false,
+                labelText: 'Transaction PIN',
+                labelStyle: TextStyle(color: Colors.white54),
+                counterText: '',
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE6C978))),
+              ),
+            ),
+            if (err != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(err!, style: const TextStyle(color: Color(0xFFFFB4A9), fontSize: 13)),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: busy ? null : () => Navigator.pop(dctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE6C978), foregroundColor: Colors.black),
+            onPressed: busy ? null : () async {
+              ds(() { busy = true; err = null; });
+              String ref = '';
+              final raw = prefs.getString(key);
+              if (raw != null) {
+                try {
+                  final sv = jsonDecode(raw);
+                  if (sv is Map && sv['fingerprint'] == fp) {
+                    ref = (sv['reference'] ?? '').toString();
+                  } else {
+                    ds(() { busy = false; err = 'A previous transfer is unresolved. Retry it before starting another.'; });
+                    return;
+                  }
+                } catch (_) {
+                  ds(() { busy = false; err = 'A previous transfer needs review. Please do not send again yet.'; });
+                  return;
+                }
+              }
+              if (ref.isEmpty) {
+                ref = 'xame-cx-${DateTime.now().microsecondsSinceEpoch}';
+                await prefs.setString(key, jsonEncode({'fingerprint': fp, 'reference': ref}));
+              }
+              try {
+                final r2 = await http.post(
+                  Uri.parse('${widget.serverUrl}/api/wallet/p2p/convert-send'),
+                  headers: await AuthService().authenticatedHeaders(),
+                  body: jsonEncode({
+                    'userId': widget.userId,
+                    'recipientId': recipient,
+                    'amount': amount,
+                    'reference': ref,
+                    'token': q['token'],
+                    'pin': pinCtrl.text.trim(),
+                  }),
+                ).timeout(const Duration(seconds: 25));
+                dynamic d2;
+                try { d2 = jsonDecode(r2.body); } catch (_) { d2 = null; }
+                if (d2 is Map && d2['success'] == true) {
+                  await prefs.remove(key);
+                  sent = Map<String, dynamic>.from(d2);
+                  if (dctx.mounted) Navigator.pop(dctx, true);
+                  return;
+                }
+                if ([400, 401, 402, 403, 404, 409, 423].contains(r2.statusCode)) {
+                  await prefs.remove(key);
+                }
+                ds(() {
+                  busy = false;
+                  err = (d2 is Map ? d2['message'] : null)?.toString() ?? 'Transfer failed.';
+                });
+              } catch (_) {
+                ds(() {
+                  busy = false;
+                  err = 'Network error. Close this, check your balance, then try again with the same amount.';
+                });
+              }
+            },
+            child: const Text('Confirm'),
+          ),
+        ],
+      )),
+    );
+    pinCtrl.dispose();
+    final done = sent;
+    if (ok != true || done == null) return 'stop';
+    try { await widget.onSuccess(); } catch (_) {}
+    widget.snack('✅ ${done['from']} ${(done['amount'] as num).toStringAsFixed(2)} sent. Recipient gets ${done['to']} ${(done['receive'] as num).toStringAsFixed(2)}.');
+    if (mounted) setState(() { _selContact = null; _amtCtrl.clear(); _amount = 0; });
+    try {
+      http.post(
+        Uri.parse('${widget.serverUrl}/api/rewards/wallet-send'),
+        headers: await AuthService().authenticatedHeaders(),
+        body: jsonEncode({'userId': widget.userId}),
+      );
+    } catch (_) {}
+    return 'done';
+  }
+
   Future<void> _sendToContact() async {
     if (_selContact == null) { widget.snack('Select a contact'); return; }
     if (_amount < 1)         { widget.snack('Enter a valid amount'); return; }
     if (_amount > widget.balance) { widget.snack('Insufficient balance'); return; }
+    // XAMEPAY_CROSSSEND_UI_V1: a recipient wallet in another currency goes through quote, PIN and confirm.
+    {
+      final cs = await _crossSendFlow();
+      if (cs != 'none') return;
+    }
     widget.snack('Processing transfer…');
     final prefs = await SharedPreferences.getInstance();
     final refKey = 'xamepage_p2p_${widget.userId}';
