@@ -325,3 +325,12 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: apk-output/*.apk
+
+      - name: Record approved build on server
+        env:
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+        run: |
+          curl -sS --fail-with-body -X POST "https://app.xamepage.com/api/xamepay/approve" \
+            -H "Content-Type: application/json" \
+            -H "x-admin-secret: $ADMIN_SECRET" \
+            -d "{\"version\":\"${{ steps.ver.outputs.name }}\",\"buildNumber\":\"${{ steps.ver.outputs.build }}\"}"
