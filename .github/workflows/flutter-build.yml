@@ -296,6 +296,7 @@ jobs:
             build/app/outputs/flutter-apk/XamePay_*.apk
             build/app/outputs/bundle/release/XamePay_*.aab
           generate_release_notes: false
+          draft: true
 
       - name: Cleanup
         if: always()
@@ -315,16 +316,13 @@ jobs:
           echo "name=$(echo $VERSION | cut -d'+' -f1)" >> $GITHUB_OUTPUT
           echo "build=$(echo $VERSION | cut -d'+' -f2)" >> $GITHUB_OUTPUT
 
-      - name: Download APK from release
+      - name: Publish release (approved)
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release download "${{ github.ref_name }}" -p '*.apk' -D apk-output --repo "${{ github.repository }}"
-
-      - name: Upload APK to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: apk-output/*.apk
+        run: |
+          ID=$(gh api "repos/${{ github.repository }}/releases?per_page=100" -q '.[] | select(.tag_name=="${{ github.ref_name }}") | .id' | head -n1)
+          [ -n "$ID" ] || { echo "No release found for ${{ github.ref_name }}"; exit 1; }
+          gh api -X PATCH "repos/${{ github.repository }}/releases/$ID" -F draft=false
 
       - name: Record approved build on server
         env:
