@@ -1,6 +1,8 @@
 # XamePay open items (updated Nov 2, 2026)
 
 ## Waiting on a result or a person
+- Cross-send two-account test (PIN on for both), then decide when to set XAMEPAY_CROSSSEND_ENABLED.
+- Build 57 (stale purchase reference): confirm it compiled, then retry the airtime test.
 - Airtime, data and bills: Flutterwave shows no bill history at all. Make one small airtime purchase and read the Render log line 'bill provider reply' to see why bills never complete.
 - A pending transaction blocks the Ghana region switch on one test wallet (balance 1041.60 vs 11301.60 earlier): find it with admin stuck-transfers, walletbillledgers and walletcreditholds; settle with the admin route after checking Flutterwave.
 - Build 50 test: stale bank-transfer reference no longer blocks new transfers.
@@ -9,6 +11,7 @@
 - Ghana airtime lookup needs working Reloadly credentials (Render log line "Intl quote failed").
 
 ## Done
+- Cross-send server routes live and off until XAMEPAY_CROSSSEND_ENABLED=true; a missing wallet currency counts as the default (server 8d416357, 4815b6c2); app flow in build 55.
 - Bank transfers working: last failure Oct 17, four transfers completed Nov 2 to 5 (reopen if one fails; the provider reply is logged). Builds 53 and 54 shipped (CMR maps to XAF; unopened countries marked coming soon). App-lock encryption key set in Render.
 - Stuck purchase xp1793557376274059 refunded with the admin settle-bill route; settlement now works when the wallet history entry has aged out; admin pending-wallet-items and bill-lookup routes (server, Nov 6).
 - Saved display currency CMR maps to XAF when read (build 53).
