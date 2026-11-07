@@ -2,16 +2,14 @@
 
 ## Waiting on a result or a person
 - Airtime, data and bills: Flutterwave shows no bill history at all. Make one small airtime purchase and read the Render log line 'bill provider reply' to see why bills never complete.
-- Bank transfers completed on Nov 2, 3 and 5; confirm whether any still fail, and what the app said.
 - A pending transaction blocks the Ghana region switch on one test wallet (balance 1041.60 vs 11301.60 earlier): find it with admin stuck-transfers, walletbillledgers and walletcreditholds; settle with the admin route after checking Flutterwave.
-- Bank-transfer test after f99dc88c: read the Render log line 'send-bank provider reply'.
 - Build 50 test: stale bank-transfer reference no longer blocks new transfers.
 - Builds 48 and 49 tests: history symbols after a conversion; wallet-send details wording.
 - Reloadly: account setup fault (their side), live credentials, wallet currency and funding, rotate 2FA key.
 - Ghana airtime lookup needs working Reloadly credentials (Render log line "Intl quote failed").
-- Flutterwave dashboard: check Transfers for reference xame-1793460306722461; IP allow-list; NGN balance.
 
 ## Done
+- Bank transfers working: last failure Oct 17, four transfers completed Nov 2 to 5 (reopen if one fails; the provider reply is logged). Builds 53 and 54 shipped (CMR maps to XAF; unopened countries marked coming soon). App-lock encryption key set in Render.
 - Stuck purchase xp1793557376274059 refunded with the admin settle-bill route; settlement now works when the wallet history entry has aged out; admin pending-wallet-items and bill-lookup routes (server, Nov 6).
 - Saved display currency CMR maps to XAF when read (build 53).
 - Background sweep settles stuck outgoing transfers that have a Flutterwave ID, via the verified settle function (server, Nov 5).
