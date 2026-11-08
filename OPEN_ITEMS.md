@@ -1,6 +1,9 @@
 # XamePay open items (updated Nov 2, 2026)
 
 ## Waiting on a result or a person
+- Draft-release gate: confirm the production environment has a required reviewer (private repo may need a paid plan).
+- Download routes need XAMEPAY_GH_READ_TOKEN (fine-grained, contents read-only, this repo) in Render while the repo is private; approve route refuses older builds unless force:true.
+- Read verifyAdminSecret (constant-time, fail closed).
 - Cross-send two-account test (PIN on for both), then decide when to set XAMEPAY_CROSSSEND_ENABLED.
 - Build 57 (stale purchase reference): confirm it compiled, then retry the airtime test.
 - Airtime, data and bills: Flutterwave shows no bill history at all. Make one small airtime purchase and read the Render log line 'bill provider reply' to see why bills never complete.
