@@ -3843,11 +3843,42 @@ class _AirtimeTabState extends State<_AirtimeTab> {
 
   void _onPhoneChanged(String v) {
     _phone = v;
-    if (widget.region.countryCode == 'NG') return;
+    if (widget.region.countryCode == 'NG') { _ngDetectSchedule(v); return; }
     final tok = ++_qTok;
     setState(() { _quote = null; _quoteMsg = ''; _quoteBusy = false; });
     if (v.replaceAll(RegExp(r'\D'), '').length < 8) return;
     Future.delayed(const Duration(milliseconds: 700), () => _fetchQuote(tok));
+  }
+
+  // XAMEPAY_NG_AUTONET_V1: pre-select the Nigerian network from the typed number; the user can still tap another tile.
+  bool _netManual = false;
+  int _ngTok = 0;
+  void _ngDetectSchedule(String v) {
+    final tok = ++_ngTok;
+    if (_netManual) return;
+    if (v.replaceAll(RegExp(r'\D'), '').length < 11) return;
+    Future.delayed(const Duration(milliseconds: 700), () => _ngDetect(tok));
+  }
+
+  Future<void> _ngDetect(int tok) async {
+    if (!mounted || tok != _ngTok || _netManual) return;
+    try {
+      final uri = Uri.parse('${widget.serverUrl}/api/wallet/intl/quote').replace(
+        queryParameters: {'userId': widget.userId, 'country': 'NG', 'phone': _phone.trim()});
+      final r = await http.get(uri, headers: await AuthService().authenticatedHeaders())
+          .timeout(const Duration(seconds: 15));
+      final d = jsonDecode(r.body);
+      if (!mounted || tok != _ngTok || _netManual) return;
+      if (d is Map && d['success'] == true) {
+        final n = (d['operatorName'] ?? '').toString().toLowerCase();
+        String? id;
+        if (n.contains('mtn')) { id = 'MTN-NG'; }
+        else if (n.contains('airtel')) { id = 'AIRTEL-NG'; }
+        else if (n.contains('glo')) { id = 'GLO-NG'; }
+        else if (n.contains('t2') || n.contains('9mobile') || n.contains('etisalat')) { id = '9MOBILE-NG'; }
+        if (id != null) setState(() => _net = id);
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchQuote(int tok) async {
@@ -3951,7 +3982,7 @@ class _AirtimeTabState extends State<_AirtimeTab> {
                 fontSize: 13, fontWeight: FontWeight.w600)),
         const SizedBox(height: 10),
         _netGrid(widget.region.networks, _net,
-            (id) => setState(() => _net = id)),
+            (id) => setState(() { _net = id; _netManual = true; })),
         const SizedBox(height: 16),
       ],
       const Text('Phone Number',
