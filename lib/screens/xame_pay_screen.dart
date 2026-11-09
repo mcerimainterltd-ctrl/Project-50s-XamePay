@@ -4576,6 +4576,40 @@ class _DataTabState extends State<_DataTab> {
 
   List<DataPlan> get _plans => _fetchedPlans.isNotEmpty ? _fetchedPlans : (_net == null ? [] : (_kDataPlans[_net] ?? []));
 
+  // XAMEPAY_NG_AUTONET_DATA_V1: pre-select the Nigerian network from the typed number (same rules as the airtime tab); tapping a tile always wins.
+  bool _netManual = false;
+  int _ngTok = 0;
+  void _dataNetDetectSchedule(String v) {
+    final tok = ++_ngTok;
+    if (_netManual) return;
+    if (v.replaceAll(RegExp(r'\D'), '').length < 11) return;
+    Future.delayed(const Duration(milliseconds: 700), () => _dataNetDetect(tok));
+  }
+
+  Future<void> _dataNetDetect(int tok) async {
+    if (!mounted || tok != _ngTok || _netManual) return;
+    try {
+      final uri = Uri.parse('${widget.serverUrl}/api/wallet/intl/quote').replace(
+        queryParameters: {'userId': widget.userId, 'country': 'NG', 'phone': _phone.trim()});
+      final r = await http.get(uri, headers: await AuthService().authenticatedHeaders())
+          .timeout(const Duration(seconds: 15));
+      final d = jsonDecode(r.body);
+      if (!mounted || tok != _ngTok || _netManual) return;
+      if (d is Map && d['success'] == true) {
+        final n = (d['operatorName'] ?? '').toString().toLowerCase();
+        String? id;
+        if (n.contains('mtn')) { id = 'MTN-NG'; }
+        else if (n.contains('airtel')) { id = 'AIRTEL-NG'; }
+        else if (n.contains('glo')) { id = 'GLO-NG'; }
+        else if (n.contains('t2') || n.contains('9mobile') || n.contains('etisalat')) { id = '9MOBILE-NG'; }
+        if (id != null && id != _net) {
+          setState(() { _net = id; _plan = null; _fetchedPlans = []; });
+          _fetchPlans(id);
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<void> _fetchPlans(String operatorId) async {
     setState(() { _fetchingPlans = true; _fetchedPlans = []; });
     try {
@@ -4670,7 +4704,7 @@ class _DataTabState extends State<_DataTab> {
               fontSize: 13, fontWeight: FontWeight.w600)),
       const SizedBox(height: 10),
       _netGrid(widget.region.networks, _net, (id) {
-        setState(() { _net = id; _plan = null; _fetchedPlans = []; });
+        setState(() { _net = id; _plan = null; _fetchedPlans = []; _netManual = true; });
         _fetchPlans(id);
       }),
       const SizedBox(height: 16),
@@ -4681,7 +4715,7 @@ class _DataTabState extends State<_DataTab> {
               fontSize: 13, fontWeight: FontWeight.w600)),
       const SizedBox(height: 8),
       _xf(_pCtrl, 'Enter phone number',
-          TextInputType.phone, (v) => _phone = v),
+          TextInputType.phone, (v) { _phone = v; _dataNetDetectSchedule(v); }),
 
       // ── Plans ───────────────────────────────────────────────────────────
       if (_net != null) ...[
