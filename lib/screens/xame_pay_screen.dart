@@ -2535,6 +2535,11 @@ class _SendTabState extends State<_SendTab> {
   List<BankItem> _banks = [], _filtered = [];
   BankItem? _selBank;
   String _accNum = '', _accName = '', _resolved = '';
+  // XAMEPAY_PAYOUT_MOMO_V1: for a non-naira wallet, mobile-money codes skip the account-name check and take a typed recipient name.
+  final _momoNameCtrl = TextEditingController();
+  static const _kMomoCodes = {'MTN', 'TELECEL', 'VODAFONE', 'AIRTELTIGO', 'MPS', 'SAFARICOM', 'AIRTEL'};
+  bool get _isMomo => widget.currency != 'NGN' && _selBank != null && _kMomoCodes.contains(_selBank!.code.toUpperCase());
+  double? _quotedFee;
   bool _resolving = false;
   double _amount = 0;
   final _accCtrl = TextEditingController();
@@ -2565,6 +2570,7 @@ class _SendTabState extends State<_SendTab> {
   @override void dispose() {
     _accCtrl.dispose(); _amtCtrl.dispose(); _srchCtrl.dispose();
     _contactSearchCtrl.dispose();
+    _momoNameCtrl.dispose();
     super.dispose();
   }
 
@@ -3010,7 +3016,7 @@ class _SendTabState extends State<_SendTab> {
   }
 
   Future<bool> _showTransferConfirmation() async {
-    final fee = _estimateFee(_amount);
+    final fee = _quotedFee ?? _estimateFee(_amount); // XAMEPAY_PAYOUT_QUOTE_UI_V1
     final total = _amount + fee;
     final cashbackEstimate = (_amount * 0.0002 / 0.1).floor(); // Basic tier estimate
     return await showModalBottomSheet<bool>(
@@ -3092,6 +3098,36 @@ class _SendTabState extends State<_SendTab> {
     if (widget.region.countryCode != homeCc) {
       widget.snack('Bank transfers to ${widget.region.country} are not available from a ${widget.currency} wallet yet.');
       return;
+    }
+
+    // XAMEPAY_PAYOUT_QUOTE_UI_V1: a non-naira payout shows the server's fee quote, and stops here if the rail is not open.
+    _quotedFee = null;
+    if (widget.currency != 'NGN') {
+      try {
+        final qr = await http.get(
+          Uri.parse('${widget.serverUrl}/api/wallet/payout/quote').replace(
+              queryParameters: {
+                'userId': widget.userId,
+                'bank': _selBank!.code,
+                'amount': _amount.toString(),
+              }),
+          headers: await AuthService().authenticatedHeaders(),
+        ).timeout(const Duration(seconds: 12));
+        final qd = jsonDecode(qr.body);
+        if (qd is Map && qd['success'] == true && qd['needed'] == true) {
+          _quotedFee = (qd['fee'] as num).toDouble();
+        } else {
+          widget.snack('❌ ${(qd is Map ? qd['message'] : null) ?? 'Bank transfers from this wallet are not available yet.'}');
+          return;
+        }
+      } catch (_) {
+        widget.snack('❌ Could not get the fee. Check your connection and try again.');
+        return;
+      }
+      if (_isMomo && _accName.trim().length < 2) {
+        widget.snack('Enter the recipient name');
+        return;
+      }
     }
 
     final confirmed = await _showTransferConfirmation();
@@ -3567,7 +3603,7 @@ class _SendTabState extends State<_SendTab> {
                   return InkWell(
                     onTap: () {
                       setState(() { _selBank = b; _srchCtrl.text = b.name; });
-                      if (_accNum.length >= 10) _resolve();
+                      if (_isMomo) { setState(() { _resolved = ''; _accName = _momoNameCtrl.text.trim(); }); } else if (_accNum.length >= 10) { _resolve(); }
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -3588,7 +3624,7 @@ class _SendTabState extends State<_SendTab> {
                 fontSize: 13, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         _xf(_accCtrl, 'Enter account number', TextInputType.number, (v) {
-          _accNum = v; if (v.length >= 10) _resolve();
+          _accNum = v; if (v.length >= 10 && !_isMomo) _resolve();
         }),
         if (_resolving)
           const Padding(padding: EdgeInsets.only(bottom: 8),
@@ -3606,6 +3642,15 @@ class _SendTabState extends State<_SendTab> {
                     ? _kTeal : const Color(0xFFF0A500),
                 fontSize: 13)),
           ),
+        if (_isMomo) ...[
+          const Text('Recipient name',
+              style: TextStyle(color: _kMuted,
+                  fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          _xf(_momoNameCtrl, 'Name registered on this number',
+              TextInputType.name, (v) { _accName = v.trim(); }),
+          const SizedBox(height: 8),
+        ],
         const SizedBox(height: 16),
         const Text('Amount',
             style: TextStyle(color: _kMuted,
