@@ -2538,7 +2538,9 @@ class _SendTabState extends State<_SendTab> {
   // XAMEPAY_PAYOUT_MOMO_V1: for a non-naira wallet, mobile-money codes skip the account-name check and take a typed recipient name.
   final _momoNameCtrl = TextEditingController();
   static const _kMomoCodes = {'MTN', 'TELECEL', 'VODAFONE', 'AIRTELTIGO', 'MPS', 'SAFARICOM', 'AIRTEL'};
-  bool get _isMomo => widget.currency != 'NGN' && _selBank != null && _kMomoCodes.contains(_selBank!.code.toUpperCase());
+  // XAMEPAY_PAYOUT_NAME_V2: any non-naira payout takes a typed recipient name; the name check built for Nigerian accounts is skipped.
+  bool get _isMomo => widget.currency != 'NGN' && _selBank != null;
+  bool get _isMomoCode => _selBank != null && _kMomoCodes.contains(_selBank!.code.toUpperCase());
   double? _quotedFee;
   bool _resolving = false;
   double _amount = 0;
@@ -3647,7 +3649,7 @@ class _SendTabState extends State<_SendTab> {
               style: TextStyle(color: _kMuted,
                   fontSize: 13, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          _xf(_momoNameCtrl, 'Name registered on this number',
+          _xf(_momoNameCtrl, _isMomoCode ? 'Name registered on this number' : 'Name on the bank account',
               TextInputType.name, (v) { _accName = v.trim(); }),
           const SizedBox(height: 8),
         ],
