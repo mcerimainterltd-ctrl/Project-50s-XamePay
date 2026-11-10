@@ -2611,6 +2611,27 @@ class _SendTabState extends State<_SendTab> {
     } catch (_) {}
   }
 
+  // XAMEPAY_CROSSSEND_REFRESH_V1: fetch a fresh cross-currency quote; null when it cannot be used.
+  Future<Map<String, dynamic>?> _crossFreshQuote(String recipient, num amount) async {
+    try {
+      final r = await http.get(
+        Uri.parse('${widget.serverUrl}/api/wallet/p2p/quote').replace(
+            queryParameters: {
+              'userId': widget.userId,
+              'recipientId': recipient,
+              'amount': amount.toString(),
+            }),
+        headers: await AuthService().authenticatedHeaders(),
+      ).timeout(const Duration(seconds: 12));
+      final d = jsonDecode(r.body);
+      if (d is Map && d['success'] == true && d['enabled'] == true && d['needed'] == true &&
+          (d['token'] ?? '').toString().isNotEmpty) {
+        return Map<String, dynamic>.from(d);
+      }
+    } catch (_) {}
+    return null;
+  }
+
   // XAMEPAY_CROSSSEND_UI_V1: sending to a wallet in another currency: quote, PIN, confirm.
   // Returns 'none' (continue the normal send), 'done' (sent) or 'stop' (message shown or cancelled).
   Future<String> _crossSendFlow() async {
@@ -2652,6 +2673,8 @@ class _SendTabState extends State<_SendTab> {
     final prefs = await SharedPreferences.getInstance();
     final key = 'xamepay_crosssend_${widget.userId}';
     final fp = jsonEncode([widget.userId, recipient, amount]);
+    // XAMEPAY_CROSSSEND_NAME_V1: show the contact's name next to the ID in the confirm dialog.
+    final contactName = (widget.contacts.firstWhere((c) => c['id'] == recipient, orElse: () => <String, String>{})['name'] ?? '').trim();
     final pinCtrl = TextEditingController();
     String? err;
     bool busy = false;
@@ -2666,7 +2689,7 @@ class _SendTabState extends State<_SendTab> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('To: $recipient', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+            Text(contactName.isEmpty ? 'To: $recipient' : 'To: $contactName ($recipient)', style: const TextStyle(color: Colors.white70, fontSize: 13)),
             const SizedBox(height: 8),
             Text('You send ${q['from']} ${(q['amount'] as num).toStringAsFixed(2)} + fee ${(q['fee'] as num).toStringAsFixed(2)}',
                 style: const TextStyle(color: Colors.white, fontSize: 14)),
@@ -2750,6 +2773,16 @@ class _SendTabState extends State<_SendTab> {
                   await prefs.remove(key);
                   sent = Map<String, dynamic>.from(d2);
                   if (dctx.mounted) Navigator.pop(dctx, true);
+                  return;
+                }
+                if (d2 is Map && d2['code'] == 'QUOTE_INVALID') {
+                  final fresh = await _crossFreshQuote(recipient, amount);
+                  if (fresh != null) {
+                    q = fresh;
+                    ds(() { busy = false; err = 'The rate was updated. Check the new amount, then confirm again.'; });
+                  } else {
+                    ds(() { busy = false; err = 'This quote expired and a new one could not be fetched. Close this and try again.'; });
+                  }
                   return;
                 }
                 if ([400, 401, 402, 403, 404, 409, 423].contains(r2.statusCode)) {
