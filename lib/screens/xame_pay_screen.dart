@@ -3401,6 +3401,7 @@ class _SendTabState extends State<_SendTab> {
       const Text('Send to contacts or any bank in the world',
           style: TextStyle(color: _kMuted, fontSize: 13)),
       const SizedBox(height: 16),
+      AbroadSendLink(serverUrl: widget.serverUrl, userId: widget.userId, currency: widget.currency, balance: widget.balance, pinEnabled: widget.pinEnabled, onSuccess: widget.onSuccess, snack: widget.snack), // XAMEPAY_ABROAD_UI_V2: always visible, above the tabs
       Row(children: [
         _tog('To Contact',    !_bankMode && !_benefMode, () => setState(() { _bankMode = false; _benefMode = false; })),
         const SizedBox(width: 8),
@@ -3553,7 +3554,6 @@ class _SendTabState extends State<_SendTab> {
           ),
         ),
       ] else ...[
-        AbroadSendLink(serverUrl: widget.serverUrl, userId: widget.userId, currency: widget.currency, balance: widget.balance, pinEnabled: widget.pinEnabled, onSuccess: widget.onSuccess, snack: widget.snack), // XAMEPAY_ABROAD_UI_V1
         const Text('Select Bank',
             style: TextStyle(color: _kMuted,
                 fontSize: 13, fontWeight: FontWeight.w600)),
