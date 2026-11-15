@@ -1,21 +1,53 @@
-// XAMEPAY_ABROAD_UI_V1: send from the wallet to a bank or mobile-money account in another country.
-// Countries, banks, networks and limits all come from the server, which gets them live from the payment provider.
+// XAMEPAY_ABROAD_UI_V3: send from the wallet to a bank or mobile-money account in another country.
+// Countries, banks, networks, limits and the quote all come from the server, which gets them live from the payment provider.
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/services/auth_service.dart';
 
-const _aTeal = Color(0xFF12A872);
+const _aTeal = Color(0xFF0FA66F);
+const _aBg = Color(0xFF04231B);
 const _aCard = Color(0xFF0A3327);
-const _aBg = Color(0xFF062B21);
-const _aMuted = Color(0xFF8FB3A6);
+const _aMuted = Color(0xFF8FB5A5);
+const _aGold = Color(0xFFE6C978);
 
 String _aFlag(String cc) {
   final c = cc.toUpperCase();
   if (c.length != 2) return '';
   return String.fromCharCodes(c.codeUnits.map((u) => 0x1F1E6 + u - 0x41));
 }
+
+String _aNum(double v) => v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
+
+class _AbroadArgs {
+  final String serverUrl, userId, currency;
+  final double balance;
+  final bool pinEnabled;
+  final Future<void> Function() onSuccess;
+  final void Function(String) snack;
+  const _AbroadArgs({required this.serverUrl, required this.userId, required this.currency,
+      required this.balance, required this.pinEnabled, required this.onSuccess, required this.snack});
+}
+
+PreferredSizeWidget _aBar(String flag, String title) => AppBar(
+      backgroundColor: _aCard,
+      elevation: 0,
+      iconTheme: const IconThemeData(color: Colors.white),
+      centerTitle: true,
+      title: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (flag.isNotEmpty) Text(flag, style: const TextStyle(fontSize: 18)),
+        if (flag.isNotEmpty) const SizedBox(width: 6),
+        Flexible(
+            child: Text(title,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700))),
+      ]),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(height: 1, color: _aGold.withAlpha(110)),
+      ),
+    );
 
 class AbroadSendLink extends StatefulWidget {
   final String serverUrl, userId, currency;
@@ -38,6 +70,11 @@ class _AbroadSendLinkState extends State<AbroadSendLink> {
     super.initState();
     _load();
   }
+
+  _AbroadArgs get _args => _AbroadArgs(
+      serverUrl: widget.serverUrl, userId: widget.userId, currency: widget.currency,
+      balance: widget.balance, pinEnabled: widget.pinEnabled,
+      onSuccess: widget.onSuccess, snack: widget.snack);
 
   Future<void> _load() async {
     try {
@@ -63,17 +100,8 @@ class _AbroadSendLinkState extends State<AbroadSendLink> {
       padding: const EdgeInsets.only(bottom: 14),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: _aBg,
-          shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-          builder: (_) => _AbroadSheet(
-            serverUrl: widget.serverUrl, userId: widget.userId, currency: widget.currency,
-            balance: widget.balance, pinEnabled: widget.pinEnabled, dests: _dests,
-            onSuccess: widget.onSuccess, snack: widget.snack),
-        ),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => _AbroadCountryScreen(args: _args, dests: _dests))),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
@@ -95,88 +123,112 @@ class _AbroadSendLinkState extends State<AbroadSendLink> {
   }
 }
 
-class _AbroadSheet extends StatefulWidget {
-  final String serverUrl, userId, currency;
-  final double balance;
-  final bool pinEnabled;
+class _AbroadCountryScreen extends StatelessWidget {
+  final _AbroadArgs args;
   final List<Map<String, dynamic>> dests;
-  final Future<void> Function() onSuccess;
-  final void Function(String) snack;
-  const _AbroadSheet({required this.serverUrl, required this.userId, required this.currency,
-      required this.balance, required this.pinEnabled, required this.dests,
-      required this.onSuccess, required this.snack});
+  const _AbroadCountryScreen({required this.args, required this.dests});
+
   @override
-  State<_AbroadSheet> createState() => _AbroadSheetState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _aBg,
+      appBar: _aBar('🌍', 'Send abroad'),
+      body: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: dests.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (ctx, i) {
+          if (i == 0) {
+            return const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text('Choose the country your recipient is in',
+                    style: TextStyle(color: _aMuted, fontSize: 13)));
+          }
+          final d = dests[i - 1];
+          final t = d['types'];
+          final keys = t is Map ? t.keys.map((e) => e.toString()).toList() : <String>[];
+          final kinds = <String>[
+            if (keys.contains('bank')) 'Bank',
+            if (keys.contains('momo')) 'Mobile money',
+          ];
+          return InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => Navigator.of(ctx).push(MaterialPageRoute(
+                builder: (_) => _AbroadBankScreen(args: args, dest: d))),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
+                  color: _aCard, borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white10)),
+              child: Row(children: [
+                Text(_aFlag((d['country'] ?? '').toString()), style: const TextStyle(fontSize: 24)),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${d['name']} (${d['currency']})',
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                  if (kinds.isNotEmpty)
+                    Text(kinds.join(' · '), style: const TextStyle(color: _aMuted, fontSize: 12)),
+                ])),
+                const Icon(Icons.chevron_right, color: _aMuted),
+              ]),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
 
-class _AbroadSheetState extends State<_AbroadSheet> {
-  Map<String, dynamic>? _dest;
+class _AbroadBankScreen extends StatefulWidget {
+  final _AbroadArgs args;
+  final Map<String, dynamic> dest;
+  const _AbroadBankScreen({required this.args, required this.dest});
+  @override
+  State<_AbroadBankScreen> createState() => _AbroadBankScreenState();
+}
+
+class _AbroadBankScreenState extends State<_AbroadBankScreen> {
   List<Map<String, dynamic>> _banks = [];
   List<Map<String, dynamic>> _filtered = [];
-  Map<String, dynamic>? _bank;
-  Map<String, dynamic>? _q;
-  bool _loadingBanks = false, _busy = false;
+  bool _loading = true;
   String? _err;
   final _search = TextEditingController();
-  final _acc = TextEditingController();
-  final _name = TextEditingController();
-  final _amt = TextEditingController();
-  final _pin = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
   @override
   void dispose() {
-    for (final c in [_search, _acc, _name, _amt, _pin]) {
-      c.dispose();
-    }
+    _search.dispose();
     super.dispose();
   }
 
-  String get _type => (_bank?['type'] ?? '').toString();
-
-  Map<String, dynamic>? get _limits {
-    final t = _dest?['types'];
-    if (t is Map && _type.isNotEmpty) {
-      final l = t[_type];
-      if (l is Map) return Map<String, dynamic>.from(l);
-    }
-    return null;
-  }
-
-  Future<Map<String, String>> _headers() => AuthService().authenticatedHeaders();
-
-  void _pickCountry(Map<String, dynamic> d) {
-    setState(() {
-      _dest = d; _bank = null; _banks = []; _filtered = []; _q = null; _err = null;
-      _search.clear();
-    });
-    _loadBanks();
-  }
-
-  Future<void> _loadBanks() async {
-    final cc = (_dest?['country'] ?? '').toString();
-    if (cc.isEmpty) return;
-    setState(() { _loadingBanks = true; _err = null; });
+  Future<void> _load() async {
     try {
       final r = await http.get(
-        Uri.parse('${widget.serverUrl}/api/wallet/abroad/banks')
-            .replace(queryParameters: {'userId': widget.userId, 'country': cc}),
-        headers: await _headers(),
+        Uri.parse('${widget.args.serverUrl}/api/wallet/abroad/banks').replace(
+            queryParameters: {'userId': widget.args.userId, 'country': widget.dest['country'].toString()}),
+        headers: await AuthService().authenticatedHeaders(),
       ).timeout(const Duration(seconds: 15));
       final d = jsonDecode(r.body);
       if (!mounted) return;
       if (d is Map && d['success'] == true && d['banks'] is List) {
         final list = (d['banks'] as List)
             .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
-        setState(() { _banks = list; _filtered = list; _loadingBanks = false; });
+        setState(() { _banks = list; _filtered = list; _loading = false; _err = null; });
       } else {
         setState(() {
-          _loadingBanks = false;
+          _loading = false;
           _err = (d is Map ? d['message'] : null)?.toString() ?? 'Could not load the bank list.';
         });
       }
     } catch (_) {
       if (!mounted) return;
-      setState(() { _loadingBanks = false; _err = 'Could not load the bank list. Check your connection.'; });
+      setState(() { _loading = false; _err = 'Could not load the bank list. Check your connection.'; });
     }
   }
 
@@ -189,9 +241,113 @@ class _AbroadSheetState extends State<_AbroadSheet> {
     });
   }
 
+  @override
+  Widget build(BuildContext context) {
+    final cc = (widget.dest['country'] ?? '').toString();
+    return Scaffold(
+      backgroundColor: _aBg,
+      appBar: _aBar(_aFlag(cc), (widget.dest['name'] ?? '').toString()),
+      body: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: TextField(
+            controller: _search,
+            onChanged: _filter,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: '🔍 Search bank or mobile money network',
+              hintStyle: const TextStyle(color: Colors.white38),
+              filled: true, fillColor: _aCard,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            ),
+          ),
+        ),
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator(color: _aTeal))
+              : _err != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                          Text(_err!, textAlign: TextAlign.center,
+                              style: const TextStyle(color: Color(0xFFFFB4A9), fontSize: 13)),
+                          TextButton(
+                            onPressed: () { setState(() { _loading = true; _err = null; }); _load(); },
+                            child: const Text('Try again', style: TextStyle(color: _aTeal))),
+                        ]),
+                      ))
+                  : _filtered.isEmpty
+                      ? const Center(child: Text('No banks found', style: TextStyle(color: _aMuted, fontSize: 13)))
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: _filtered.length,
+                          itemBuilder: (ctx, i) {
+                            final b = _filtered[i];
+                            return InkWell(
+                              onTap: () => Navigator.of(ctx).push(MaterialPageRoute(
+                                  builder: (_) => _AbroadDetailsScreen(args: widget.args, dest: widget.dest, bank: b))),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                decoration: BoxDecoration(
+                                    border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.06)))),
+                                child: Row(children: [
+                                  Expanded(
+                                      child: Text((b['name'] ?? '').toString(),
+                                          style: const TextStyle(color: Colors.white, fontSize: 14))),
+                                  if (b['type'] == 'momo')
+                                    const Text('Mobile money', style: TextStyle(color: _aMuted, fontSize: 11)),
+                                ]),
+                              ),
+                            );
+                          }),
+        ),
+      ]),
+    );
+  }
+}
+
+class _AbroadDetailsScreen extends StatefulWidget {
+  final _AbroadArgs args;
+  final Map<String, dynamic> dest;
+  final Map<String, dynamic> bank;
+  const _AbroadDetailsScreen({required this.args, required this.dest, required this.bank});
+  @override
+  State<_AbroadDetailsScreen> createState() => _AbroadDetailsScreenState();
+}
+
+class _AbroadDetailsScreenState extends State<_AbroadDetailsScreen> {
+  Map<String, dynamic>? _q;
+  bool _busy = false;
+  String? _err;
+  final _acc = TextEditingController();
+  final _name = TextEditingController();
+  final _amt = TextEditingController();
+  final _pin = TextEditingController();
+
+  @override
+  void dispose() {
+    for (final c in [_acc, _name, _amt, _pin]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  String get _type => (widget.bank['type'] ?? '').toString();
+  String get _cur => (widget.dest['currency'] ?? '').toString();
+
+  Map<String, dynamic>? get _limits {
+    final t = widget.dest['types'];
+    if (t is Map) {
+      final l = t[_type];
+      if (l is Map) return Map<String, dynamic>.from(l);
+    }
+    return null;
+  }
+
+  Future<Map<String, String>> _headers() => AuthService().authenticatedHeaders();
+
   String? _validate() {
-    if (_dest == null) return 'Choose a country.';
-    if (_bank == null) return 'Choose a bank or network.';
     if (_acc.text.replaceAll(RegExp(r'\D'), '').length < 8) return 'Enter the account or mobile number.';
     if (_name.text.trim().length < 2) return 'Enter the recipient name.';
     final amount = double.tryParse(_amt.text.trim()) ?? 0;
@@ -200,8 +356,8 @@ class _AbroadSheetState extends State<_AbroadSheet> {
     if (l != null) {
       final mn = (l['min'] as num?)?.toDouble() ?? 0;
       final mx = (l['max'] as num?)?.toDouble() ?? double.infinity;
-      if (amount < mn) return 'The minimum is $mn ${_dest!['currency']}.';
-      if (amount > mx) return 'The maximum is $mx ${_dest!['currency']} for now.';
+      if (amount < mn) return 'The minimum is ${_aNum(mn)} $_cur.';
+      if (amount > mx) return 'The maximum is ${_aNum(mx)} $_cur for now.';
       if (l['wholeAmount'] == true && amount != amount.roundToDouble()) return 'Enter a whole amount.';
     }
     return null;
@@ -211,10 +367,10 @@ class _AbroadSheetState extends State<_AbroadSheet> {
     final amount = double.tryParse(_amt.text.trim()) ?? 0;
     try {
       final r = await http.get(
-        Uri.parse('${widget.serverUrl}/api/wallet/abroad/quote').replace(queryParameters: {
-          'userId': widget.userId,
-          'country': _dest!['country'].toString(),
-          'bank': _bank!['code'].toString(),
+        Uri.parse('${widget.args.serverUrl}/api/wallet/abroad/quote').replace(queryParameters: {
+          'userId': widget.args.userId,
+          'country': widget.dest['country'].toString(),
+          'bank': widget.bank['code'].toString(),
           'amount': amount.toString(),
         }),
         headers: await _headers(),
@@ -247,19 +403,19 @@ class _AbroadSheetState extends State<_AbroadSheet> {
   Future<void> _send() async {
     final q = _q;
     if (q == null) return;
-    if (!widget.pinEnabled) {
+    if (!widget.args.pinEnabled) {
       setState(() => _err = 'Turn on your transaction PIN in Settings to send abroad.');
       return;
     }
     if (_pin.text.trim().isEmpty) { setState(() => _err = 'Enter your transaction PIN.'); return; }
     final cost = (q['cost'] as num).toDouble();
-    if (cost > widget.balance) { setState(() => _err = 'Insufficient balance.'); return; }
+    if (cost > widget.args.balance) { setState(() => _err = 'Insufficient balance.'); return; }
     setState(() { _busy = true; _err = null; });
     final prefs = await SharedPreferences.getInstance();
-    final key = 'xamepay_abroad_${widget.userId}';
+    final key = 'xamepay_abroad_${widget.args.userId}';
     final amount = double.tryParse(_amt.text.trim()) ?? 0;
     final digits = _acc.text.replaceAll(RegExp(r'\D'), '');
-    final fp = jsonEncode([widget.userId, _dest!['country'], _bank!['code'], digits, amount, _name.text.trim()]);
+    final fp = jsonEncode([widget.args.userId, widget.dest['country'], widget.bank['code'], digits, amount, _name.text.trim()]);
     String ref = '';
     final raw = prefs.getString(key);
     if (raw != null) {
@@ -282,16 +438,16 @@ class _AbroadSheetState extends State<_AbroadSheet> {
     }
     try {
       final r = await http.post(
-        Uri.parse('${widget.serverUrl}/api/wallet/abroad/send'),
+        Uri.parse('${widget.args.serverUrl}/api/wallet/abroad/send'),
         headers: await _headers(),
         body: jsonEncode({
-          'userId': widget.userId,
+          'userId': widget.args.userId,
           'reference': ref,
           'token': q['token'],
           'pin': _pin.text.trim(),
           'account_number': _acc.text.trim(),
           'accName': _name.text.trim(),
-          'bankName': (_bank!['name'] ?? '').toString(),
+          'bankName': (widget.bank['name'] ?? '').toString(),
         }),
       ).timeout(const Duration(seconds: 30));
       dynamic d;
@@ -300,10 +456,14 @@ class _AbroadSheetState extends State<_AbroadSheet> {
       final code = (d is Map ? d['code'] : null)?.toString();
       if (d is Map && d['success'] == true) {
         await prefs.remove(key);
-        try { await widget.onSuccess(); } catch (_) {}
+        try { await widget.args.onSuccess(); } catch (_) {}
         if (!mounted) return;
-        Navigator.pop(context);
-        widget.snack('✅ Sent. ${q['to']} ${(q['receive'] as num).toStringAsFixed(2)} is on its way to ${_name.text.trim()}.');
+        final to = q['to'];
+        final got = (q['receive'] as num).toStringAsFixed(2);
+        final who = _name.text.trim();
+        var n = 0;
+        Navigator.of(context).popUntil((_) => n++ >= 3);
+        widget.args.snack('✅ Sent. $to $got is on its way to $who.');
         return;
       }
       if (code == 'QUOTE_INVALID') {
@@ -316,7 +476,7 @@ class _AbroadSheetState extends State<_AbroadSheet> {
         return;
       }
       if (d is Map && d['pending'] == true) {
-        try { await widget.onSuccess(); } catch (_) {}
+        try { await widget.args.onSuccess(); } catch (_) {}
         if (!mounted) return;
         setState(() { _busy = false; _err = 'Transfer not confirmed. Do not send again. Reference: $ref'; });
         return;
@@ -325,7 +485,7 @@ class _AbroadSheetState extends State<_AbroadSheet> {
           (r.statusCode == 503 && (code == 'PAYOUT_TEMPORARILY_UNAVAILABLE' || code == 'RESERVE_FAILED'));
       if (definite) await prefs.remove(key);
       if (d is Map && d['refunded'] == true) {
-        try { await widget.onSuccess(); } catch (_) {}
+        try { await widget.args.onSuccess(); } catch (_) {}
       }
       if (!mounted) return;
       setState(() { _busy = false; _err = msg ?? 'Transfer failed.'; });
@@ -339,9 +499,9 @@ class _AbroadSheetState extends State<_AbroadSheet> {
     }
   }
 
-  Widget _field(TextEditingController c, String hint, TextInputType kt, {bool obscure = false, int? maxLen, void Function(String)? onChanged}) =>
+  Widget _field(TextEditingController c, String hint, TextInputType kt, {bool obscure = false, int? maxLen}) =>
       TextField(
-        controller: c, keyboardType: kt, obscureText: obscure, maxLength: maxLen, onChanged: onChanged,
+        controller: c, keyboardType: kt, obscureText: obscure, maxLength: maxLen,
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           hintText: hint, hintStyle: const TextStyle(color: Colors.white38),
@@ -351,7 +511,7 @@ class _AbroadSheetState extends State<_AbroadSheet> {
       );
 
   Widget _label(String t) => Padding(
-      padding: const EdgeInsets.only(top: 14, bottom: 8),
+      padding: const EdgeInsets.only(top: 16, bottom: 8),
       child: Text(t, style: const TextStyle(color: _aMuted, fontSize: 13, fontWeight: FontWeight.w600)));
 
   Widget _row(String label, String value, {bool bold = false}) => Padding(
@@ -359,9 +519,10 @@ class _AbroadSheetState extends State<_AbroadSheet> {
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label, style: const TextStyle(color: _aMuted, fontSize: 13)),
         const SizedBox(width: 12),
-        Flexible(child: Text(value, textAlign: TextAlign.right,
-            style: TextStyle(color: Colors.white, fontSize: bold ? 16 : 14,
-                fontWeight: bold ? FontWeight.w800 : FontWeight.w600))),
+        Flexible(
+            child: Text(value, textAlign: TextAlign.right,
+                style: TextStyle(color: Colors.white, fontSize: bold ? 16 : 14,
+                    fontWeight: bold ? FontWeight.w800 : FontWeight.w600))),
       ]));
 
   Widget _button(String text, VoidCallback? onTap) => SizedBox(
@@ -369,7 +530,7 @@ class _AbroadSheetState extends State<_AbroadSheet> {
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
             backgroundColor: _aTeal, foregroundColor: Colors.black,
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
         onPressed: onTap,
         child: _busy
@@ -379,91 +540,29 @@ class _AbroadSheetState extends State<_AbroadSheet> {
 
   List<Widget> _formWidgets() {
     final l = _limits;
-    final cur = (_dest?['currency'] ?? '').toString();
+    final momo = _type == 'momo';
     return [
-      _label('Country'),
-      Wrap(
-        spacing: 8, runSpacing: 8,
-        children: widget.dests.map<Widget>((d) {
-          final sel = identical(_dest, d);
-          return ChoiceChip(
-            label: Text('${_aFlag((d['country'] ?? '').toString())} ${d['name']}'),
-            selected: sel,
-            selectedColor: _aTeal,
-            backgroundColor: _aCard,
-            labelStyle: TextStyle(color: sel ? Colors.black : Colors.white),
-            onSelected: (_) => _pickCountry(d),
-          );
-        }).toList(),
-      ),
-      if (_dest != null) ...[
-        _label('Bank or mobile money network'),
-        if (_loadingBanks)
-          const Padding(padding: EdgeInsets.symmetric(vertical: 12),
-              child: Center(child: CircularProgressIndicator(color: _aTeal, strokeWidth: 2)))
-        else if (_bank != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(color: _aCard, borderRadius: BorderRadius.circular(12)),
-            child: Row(children: [
-              Expanded(child: Text('✅ ${_bank!['name']}', style: const TextStyle(color: _aTeal, fontWeight: FontWeight.w700))),
-              TextButton(
-                onPressed: () => setState(() { _bank = null; _q = null; _filtered = _banks; }),
-                child: const Text('Change', style: TextStyle(color: _aMuted))),
-            ]),
-          )
-        else ...[
-          _field(_search, 'Search', TextInputType.text, onChanged: _filter),
-          const SizedBox(height: 6),
-          Container(
-            constraints: const BoxConstraints(maxHeight: 200),
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white10)),
-            child: _filtered.isEmpty
-                ? const Padding(padding: EdgeInsets.all(16),
-                    child: Text('Nothing found', style: TextStyle(color: _aMuted, fontSize: 13)))
-                : ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _filtered.length,
-                    itemBuilder: (_, i) {
-                      final b = _filtered[i];
-                      return InkWell(
-                        onTap: () => setState(() { _bank = b; _q = null; _err = null; }),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05)))),
-                          child: Row(children: [
-                            Expanded(child: Text((b['name'] ?? '').toString(), style: const TextStyle(color: Colors.white, fontSize: 14))),
-                            if (b['type'] == 'momo')
-                              const Text('Mobile money', style: TextStyle(color: _aMuted, fontSize: 11)),
-                          ]),
-                        ),
-                      );
-                    }),
-          ),
-        ],
-      ],
-      if (_bank != null) ...[
-        _label(_type == 'momo' ? 'Mobile number' : 'Account number'),
-        _field(_acc, _type == 'momo' ? 'Mobile number' : 'Account number', TextInputType.number),
-        _label(_type == 'momo' ? 'Name registered on this number' : 'Name on the account'),
-        _field(_name, 'Recipient name', TextInputType.name),
-        _label('Amount the recipient gets ($cur)'),
-        _field(_amt, 'Amount', const TextInputType.numberWithOptions(decimal: true)),
-        if (l != null)
-          Padding(
+      _label(momo ? 'Mobile number' : 'Account number'),
+      _field(_acc, momo ? 'Mobile number' : 'Account number', TextInputType.number),
+      _label(momo ? 'Name registered on this number' : 'Name on the account'),
+      _field(_name, 'Recipient name', TextInputType.name),
+      _label('Amount the recipient gets ($_cur)'),
+      _field(_amt, 'Amount', const TextInputType.numberWithOptions(decimal: true)),
+      if (l != null)
+        Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: Text('Between ${l['min']} and ${l['max']} $cur',
+            child: Text('Between ${_aNum((l['min'] as num?)?.toDouble() ?? 0)} and ${_aNum((l['max'] as num?)?.toDouble() ?? 0)} $_cur',
                 style: const TextStyle(color: _aMuted, fontSize: 12))),
-        const SizedBox(height: 16),
-        _button('Get quote', _busy ? null : _onQuote),
-      ],
+      const SizedBox(height: 20),
+      _button('Get quote', _busy ? null : _onQuote),
     ];
   }
 
   List<Widget> _quoteWidgets() {
     final q = _q!;
     return [
-      _row('To', '${_name.text.trim()} (${_bank?['name'] ?? ''})'),
+      const SizedBox(height: 8),
+      _row('To', '${_name.text.trim()} (${widget.bank['name'] ?? ''})'),
       _row('Recipient gets', '${q['to']} ${(q['receive'] as num).toStringAsFixed(2)}'),
       const Divider(color: Colors.white12, height: 24),
       _row('You pay', '${q['from']} ${(q['cost'] as num).toStringAsFixed(2)}', bold: true),
@@ -471,33 +570,30 @@ class _AbroadSheetState extends State<_AbroadSheet> {
           style: TextStyle(color: _aMuted, fontSize: 12)),
       _label('Transaction PIN'),
       _field(_pin, 'PIN', TextInputType.number, obscure: true, maxLen: 6),
-      const SizedBox(height: 16),
+      const SizedBox(height: 20),
       _button('Confirm and send', _busy ? null : _send),
       TextButton(
-        onPressed: _busy ? null : () => setState(() { _q = null; _err = null; _pin.clear(); }),
-        child: const Text('Back', style: TextStyle(color: _aMuted))),
+          onPressed: _busy ? null : () => setState(() { _q = null; _err = null; _pin.clear(); }),
+          child: const Text('Edit details', style: TextStyle(color: _aMuted))),
     ];
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: SafeArea(
+    final cc = (widget.dest['country'] ?? '').toString();
+    return Scaffold(
+      backgroundColor: _aBg,
+      appBar: _aBar(_aFlag(cc), (widget.bank['name'] ?? '').toString()),
+      body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Center(child: Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)))),
-            const SizedBox(height: 14),
-            const Text('🌍 Send abroad',
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            const Text('You choose what the recipient gets. The cost is shown in your wallet currency before you confirm.',
-                style: TextStyle(color: _aMuted, fontSize: 12)),
-            if (_q == null) ..._formWidgets() else ..._quoteWidgets(),
+            Text('Sending to ${widget.dest['name']} · you pay in ${widget.args.currency}',
+                style: const TextStyle(color: _aMuted, fontSize: 12)),
+            ..._q == null ? _formWidgets() : _quoteWidgets(),
             if (_err != null)
-              Padding(padding: const EdgeInsets.only(top: 12),
+              Padding(
+                  padding: const EdgeInsets.only(top: 14),
                   child: Text(_err!, style: const TextStyle(color: Color(0xFFFFB4A9), fontSize: 13))),
           ]),
         ),
