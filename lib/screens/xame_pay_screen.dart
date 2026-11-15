@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:path_provider/path_provider.dart';
 import 'transaction_details_screen.dart';
+import 'abroad_send_sheet.dart'; // XAMEPAY_ABROAD_UI_V1
 import 'app_code_change_screen.dart';
 import 'dart:io';
 import '../core/services/push_service.dart';
@@ -3552,6 +3553,7 @@ class _SendTabState extends State<_SendTab> {
           ),
         ),
       ] else ...[
+        AbroadSendLink(serverUrl: widget.serverUrl, userId: widget.userId, currency: widget.currency, balance: widget.balance, pinEnabled: widget.pinEnabled, onSuccess: widget.onSuccess, snack: widget.snack), // XAMEPAY_ABROAD_UI_V1
         const Text('Select Bank',
             style: TextStyle(color: _kMuted,
                 fontSize: 13, fontWeight: FontWeight.w600)),
