@@ -2665,28 +2665,22 @@ class _SendTabState extends State<_SendTab> {
         value: _abCc ?? own, isExpanded: true, dropdownColor: _kBg,
         style: const TextStyle(color: Colors.white, fontSize: 14),
         decoration: _abDeco(),
-        items: <DropdownMenuItem<String>>[
-          DropdownMenuItem<String>(
-            value: own,
+        menuMaxHeight: 420, // XAMEPAY_ABROAD_UI_V5: the same country list as Wallet Settings; closed countries read coming soon
+        items: _kRegions.map<DropdownMenuItem<String>>((r) {
+          final open = r.countryCode == own || _abDests.any((d) => d['country'] == r.countryCode);
+          return DropdownMenuItem<String>(
+            value: r.countryCode,
+            enabled: open,
             child: Row(children: [
-              Text(widget.region.flag, style: const TextStyle(fontSize: 18)),
+              Text(r.flag, style: const TextStyle(fontSize: 18)),
               const SizedBox(width: 10),
-              Expanded(child: Text('${widget.region.country} (${widget.region.currency})',
+              Expanded(child: Text(
+                  open ? '${r.country} (${r.currency})' : '${r.country} (${r.currency}) - coming soon',
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontSize: 14))),
+                  style: TextStyle(color: open ? Colors.white : _kMuted, fontSize: 14))),
             ]),
-          ),
-          ..._abDests.map<DropdownMenuItem<String>>((d) => DropdownMenuItem<String>(
-            value: (d['country'] ?? '').toString(),
-            child: Row(children: [
-              Text(_abFlag((d['country'] ?? '').toString()), style: const TextStyle(fontSize: 18)),
-              const SizedBox(width: 10),
-              Expanded(child: Text('${d['name']} (${d['currency']})',
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontSize: 14))),
-            ]),
-          )),
-        ],
+          );
+        }).toList(),
         onChanged: (v) { if (v != null) _abPick(v); },
       ),
       if (_abCc != null)
