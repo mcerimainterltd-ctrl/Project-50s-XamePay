@@ -8,7 +8,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:path_provider/path_provider.dart';
 import 'transaction_details_screen.dart';
-import 'abroad_send_sheet.dart'; // XAMEPAY_ABROAD_UI_V1
 import 'app_code_change_screen.dart';
 import 'dart:io';
 import '../core/services/push_service.dart';
@@ -2540,9 +2539,374 @@ class _SendTabState extends State<_SendTab> {
   final _momoNameCtrl = TextEditingController();
   static const _kMomoCodes = {'MTN', 'TELECEL', 'VODAFONE', 'AIRTELTIGO', 'MPS', 'SAFARICOM', 'AIRTEL'};
   // XAMEPAY_PAYOUT_NAME_V2: any non-naira payout takes a typed recipient name; the name check built for Nigerian accounts is skipped.
-  bool get _isMomo => widget.currency != 'NGN' && _selBank != null;
-  bool get _isMomoCode => _selBank != null && _kMomoCodes.contains(_selBank!.code.toUpperCase());
+  bool get _isMomo => (_abCc != null || widget.currency != 'NGN') && _selBank != null;
+  bool get _isMomoCode => _selBank != null && (_abCc != null ? _abType[_selBank!.code] == 'momo' : _kMomoCodes.contains(_selBank!.code.toUpperCase()));
   double? _quotedFee;
+  // XAMEPAY_ABROAD_UI_V4: send to a bank or mobile-money account in another country from the To Bank screen.
+  // Countries, bank lists, limits and the quote all come from the server, which gets them live from the payment provider.
+  String? _abCc;
+  Map<String, dynamic>? _abDest;
+  List<Map<String, dynamic>> _abDests = [];
+  final Map<String, String> _abType = {};
+
+  String _abFlag(String cc) {
+    final c = cc.toUpperCase();
+    if (c.length != 2) return '';
+    return String.fromCharCodes(c.codeUnits.map((u) => 0x1F1E6 + u - 0x41));
+  }
+
+  InputDecoration _abDeco() => InputDecoration(
+    filled: true, fillColor: _kCard,
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Colors.white12)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Colors.white12)),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+  );
+
+  Future<void> _abLoadDests() async {
+    try {
+      final r = await http.get(
+        Uri.parse('${widget.serverUrl}/api/wallet/abroad/destinations')
+            .replace(queryParameters: {'userId': widget.userId}),
+        headers: await AuthService().authenticatedHeaders(),
+      ).timeout(const Duration(seconds: 10));
+      final d = jsonDecode(r.body);
+      if (!mounted) return;
+      if (d is Map && d['success'] == true && d['enabled'] == true && d['destinations'] is List) {
+        final own = widget.region.countryCode;
+        final list = (d['destinations'] as List)
+            .whereType<Map>().map((e) => Map<String, dynamic>.from(e))
+            .where((e) => e['country'] != own && e['currency'] != widget.currency).toList();
+        setState(() => _abDests = list);
+      }
+    } catch (_) {}
+  }
+
+  void _abPick(String v) {
+    final own = widget.region.countryCode;
+    Map<String, dynamic>? dest;
+    for (final d in _abDests) {
+      if (d['country'] == v) dest = d;
+    }
+    setState(() {
+      _abCc = (v == own) ? null : v;
+      _abDest = (v == own) ? null : dest;
+      _selBank = null; _banks = []; _filtered = [];
+      _srchCtrl.clear(); _resolved = ''; _quotedFee = null;
+    });
+    _fetchBanks();
+  }
+
+  Future<void> _abFetchBanks() async {
+    final cc = _abCc;
+    if (cc == null) return;
+    setState(() { _loadingBanks = true; _bankError = false; });
+    try {
+      final r = await http.get(
+        Uri.parse('${widget.serverUrl}/api/wallet/abroad/banks')
+            .replace(queryParameters: {'userId': widget.userId, 'country': cc}),
+        headers: await AuthService().authenticatedHeaders(),
+      ).timeout(const Duration(seconds: 15));
+      final d = jsonDecode(r.body);
+      if (d is Map && d['success'] == true && d['banks'] is List && (d['banks'] as List).isNotEmpty) {
+        final types = <String, String>{};
+        final list = (d['banks'] as List).whereType<Map>().map((e) {
+          final m = Map<String, dynamic>.from(e);
+          types[(m['code'] ?? '').toString()] = (m['type'] ?? '').toString();
+          return BankItem.fromJson(m);
+        }).toList();
+        if (!mounted || _abCc != cc) return;
+        setState(() {
+          _abType..clear()..addAll(types);
+          _banks = list; _filtered = list; _loadingBanks = false;
+        });
+        return;
+      }
+    } catch (_) {}
+    if (mounted) setState(() { _loadingBanks = false; _bankError = true; });
+  }
+
+  Widget _abroadCard() {
+    if (_abDests.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => setState(() { _bankMode = true; _benefMode = false; }),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+              color: _kCard, borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white10)),
+          child: Row(children: const [
+            Text('🌍', style: TextStyle(fontSize: 20)),
+            SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Send abroad', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+              Text('Pay a bank or mobile money account in another country',
+                  style: TextStyle(color: _kMuted, fontSize: 12)),
+            ])),
+            Icon(Icons.chevron_right, color: _kMuted),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _abroadDropdown() {
+    if (_abDests.isEmpty) return const <Widget>[];
+    final own = widget.region.countryCode;
+    return <Widget>[
+      const Text('Send to',
+          style: TextStyle(color: _kMuted, fontSize: 13, fontWeight: FontWeight.w600)),
+      const SizedBox(height: 8),
+      DropdownButtonFormField<String>(
+        value: _abCc ?? own, isExpanded: true, dropdownColor: _kBg,
+        style: const TextStyle(color: Colors.white, fontSize: 14),
+        decoration: _abDeco(),
+        items: <DropdownMenuItem<String>>[
+          DropdownMenuItem<String>(
+            value: own,
+            child: Row(children: [
+              Text(widget.region.flag, style: const TextStyle(fontSize: 18)),
+              const SizedBox(width: 10),
+              Expanded(child: Text('${widget.region.country} (${widget.region.currency})',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 14))),
+            ]),
+          ),
+          ..._abDests.map<DropdownMenuItem<String>>((d) => DropdownMenuItem<String>(
+            value: (d['country'] ?? '').toString(),
+            child: Row(children: [
+              Text(_abFlag((d['country'] ?? '').toString()), style: const TextStyle(fontSize: 18)),
+              const SizedBox(width: 10),
+              Expanded(child: Text('${d['name']} (${d['currency']})',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 14))),
+            ]),
+          )),
+        ],
+        onChanged: (v) { if (v != null) _abPick(v); },
+      ),
+      if (_abCc != null)
+        const Padding(
+          padding: EdgeInsets.only(top: 6),
+          child: Text('Enter the amount your recipient should receive. You will see the cost in your wallet currency before you confirm.',
+              style: TextStyle(color: _kMuted, fontSize: 12)),
+        ),
+      const SizedBox(height: 16),
+    ];
+  }
+
+  Future<bool> _abroadConfirm(Map<String, dynamic> q) async {
+    return await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: _kCard,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 16),
+          const Text('Confirm Transfer', style: TextStyle(
+              color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text('To $_accName${_selBank != null ? ' (${_selBank!.name})' : ''}',
+              style: const TextStyle(color: _kMuted, fontSize: 13)),
+          const SizedBox(height: 20),
+          _confirmRow('Recipient gets', '${q['to']} ${(q['receive'] as num).toStringAsFixed(2)}'),
+          const Divider(color: Colors.white12, height: 24),
+          _confirmRow('You pay', '${q['from']} ${(q['cost'] as num).toStringAsFixed(2)}', bold: true),
+          const Text('Includes the transfer fee and the exchange margin. This quote is valid for about 90 seconds.',
+              style: TextStyle(color: _kMuted, fontSize: 12)),
+          const SizedBox(height: 24),
+          Row(children: [
+            Expanded(child: OutlinedButton(
+                onPressed: () => Navigator.pop(context, false),
+                style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.white24),
+                    padding: const EdgeInsets.symmetric(vertical: 14)),
+                child: const Text('Cancel', style: TextStyle(color: Colors.white)))),
+            const SizedBox(width: 12),
+            Expanded(child: ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: _kTeal,
+                    padding: const EdgeInsets.symmetric(vertical: 14)),
+                child: const Text('Confirm & Send', style: TextStyle(
+                    color: Colors.black, fontWeight: FontWeight.w700)))),
+          ]),
+        ]),
+      ),
+    ) ?? false;
+  }
+
+  Future<void> _abroadSend() async {
+    final dest = _abDest;
+    if (dest == null || _selBank == null) { widget.snack('Select a bank'); return; }
+    final digits = _accNum.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 8) { widget.snack('Enter account number'); return; }
+    if (_accName.trim().length < 2) { widget.snack('Enter the recipient name'); return; }
+    if (_amount <= 0) { widget.snack('Enter a valid amount'); return; }
+    final cur = (dest['currency'] ?? '').toString();
+    final type = _abType[_selBank!.code] ?? '';
+    final lim = dest['types'] is Map ? (dest['types'] as Map)[type] : null;
+    if (lim is Map) {
+      final mn = (lim['min'] as num?)?.toDouble() ?? 0;
+      final mx = (lim['max'] as num?)?.toDouble() ?? double.infinity;
+      if (_amount < mn) { widget.snack('The minimum is $mn $cur.'); return; }
+      if (_amount > mx) { widget.snack('The maximum is $mx $cur for now.'); return; }
+      if (lim['wholeAmount'] == true && _amount != _amount.roundToDouble()) { widget.snack('Enter a whole amount.'); return; }
+    }
+    Map<String, dynamic> q;
+    try {
+      final qr = await http.get(
+        Uri.parse('${widget.serverUrl}/api/wallet/abroad/quote').replace(queryParameters: {
+          'userId': widget.userId,
+          'country': dest['country'].toString(),
+          'bank': _selBank!.code,
+          'amount': _amount.toString(),
+        }),
+        headers: await AuthService().authenticatedHeaders(),
+      ).timeout(const Duration(seconds: 15));
+      final qd = jsonDecode(qr.body);
+      if (qd is Map && qd['success'] == true && qd['needed'] == true && (qd['token'] ?? '').toString().isNotEmpty) {
+        q = Map<String, dynamic>.from(qd);
+      } else {
+        widget.snack('❌ ${(qd is Map ? qd['message'] : null) ?? 'Could not get a quote.'}');
+        return;
+      }
+    } catch (_) {
+      widget.snack('❌ Could not get a quote. Check your connection.');
+      return;
+    }
+    final cost = (q['cost'] as num).toDouble();
+    if (cost > widget.balance) { widget.snack('Insufficient balance'); return; }
+    if (!widget.pinEnabled) { widget.snack('Turn on your transaction PIN in Settings to send abroad.'); return; }
+    final ok = await _abroadConfirm(q);
+    if (!ok || !mounted) return;
+    final pin = await _promptPin(context);
+    if (pin == null || !mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'xamepay_abroad_${widget.userId}';
+    final fp = jsonEncode([widget.userId, dest['country'], _selBank!.code, digits, _amount, _accName.trim()]);
+    final raw = prefs.getString(key);
+    if (raw != null) {
+      try {
+        final sv0 = jsonDecode(raw);
+        final sref = (sv0 is Map ? sv0['reference'] : null)?.toString() ?? '';
+        if (RegExp(r'^[A-Za-z0-9._:-]{8,100}$').hasMatch(sref)) {
+          final sr = await http.get(
+            Uri.parse('${widget.serverUrl}/api/wallet/transfer-status/${Uri.encodeComponent(sref)}'),
+            headers: await AuthService().authenticatedHeaders(),
+          ).timeout(const Duration(seconds: 10));
+          if (sr.statusCode == 404) {
+            await prefs.remove(key);
+          } else if (sr.statusCode >= 200 && sr.statusCode < 300) {
+            final sd = jsonDecode(sr.body);
+            final st = (sd is Map ? sd['status'] : null)?.toString().toLowerCase() ?? '';
+            if (sd is Map && sd['pending'] == false && (st == 'succeeded' || st == 'refunded' || st == 'failed')) {
+              await prefs.remove(key);
+              try { await widget.onSuccess(); } catch (_) {}
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    String ref = '';
+    final saved = prefs.getString(key);
+    if (saved != null) {
+      try {
+        final sv = jsonDecode(saved);
+        if (sv is Map && sv['fingerprint'] == fp) {
+          ref = (sv['reference'] ?? '').toString();
+        } else {
+          widget.snack('A previous transfer is unresolved. Do not send another transfer until its status is confirmed.');
+          return;
+        }
+      } catch (_) {
+        widget.snack('A previous transfer record needs review. Contact support before retrying.');
+        return;
+      }
+    }
+    if (ref.isEmpty) {
+      ref = 'xame-ab-${DateTime.now().microsecondsSinceEpoch}';
+      await prefs.setString(key, jsonEncode({'fingerprint': fp, 'reference': ref}));
+    }
+    widget.snack('Processing transfer…');
+    try {
+      final r = await http.post(
+        Uri.parse('${widget.serverUrl}/api/wallet/abroad/send'),
+        headers: await AuthService().authenticatedHeaders(),
+        body: jsonEncode({
+          'userId': widget.userId,
+          'reference': ref,
+          'token': q['token'],
+          'pin': pin,
+          'account_number': _accNum.trim(),
+          'accName': _accName.trim(),
+          'bankName': _selBank!.name,
+        }),
+      ).timeout(const Duration(seconds: 30));
+      dynamic d;
+      try { d = jsonDecode(r.body); } catch (_) { d = null; }
+      final code = (d is Map ? d['code'] : null)?.toString();
+      final msg = (d is Map ? d['message'] : null)?.toString();
+      if (d is Map && d['success'] == true) {
+        try { await widget.onSuccess(); } catch (_) {}
+        if (!mounted) return;
+        final live = ValueNotifier<String>('processing');
+        unawaited(_followTransfer(ref, live, key));
+        final rn = d['recipientName']?.toString() ?? _accName;
+        Navigator.of(context).pop();
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => TransactionDetailsScreen(
+            amount: (d['principal'] as num?)?.toDouble() ?? cost,
+            fee: (d['fee'] as num?)?.toDouble() ?? 0,
+            totalDebit: (d['totalDebit'] as num?)?.toDouble() ?? cost,
+            cashbackCoins: null,
+            senderName: '',
+            senderBankName: '',
+            senderAccountNumber: '',
+            recipientName: rn,
+            bankName: d['bankName']?.toString() ?? _selBank!.name,
+            accountNumber: d['accountNumber']?.toString() ?? digits,
+            txRef: d['txRef']?.toString() ?? ref,
+            sessionId: d['txRef']?.toString() ?? ref,
+            paymentMethod: 'XamePay Wallet',
+            ts: DateTime.now(),
+            fmt: widget.fmt,
+            description: 'Transfer to $rn',
+            liveStatus: live,
+          ),
+        ));
+        return;
+      }
+      if (code == 'QUOTE_INVALID') {
+        widget.snack('The rate was updated. Tap Send again to see the new amount.');
+        return;
+      }
+      if (d is Map && d['pending'] == true) {
+        try { await widget.onSuccess(); } catch (_) {}
+        widget.snack('Transfer not confirmed. Do not send again. Reference: $ref');
+        return;
+      }
+      final definite = [400, 401, 402, 403, 404, 409, 422, 423].contains(r.statusCode) ||
+          (r.statusCode == 503 && (code == 'PAYOUT_TEMPORARILY_UNAVAILABLE' || code == 'RESERVE_FAILED'));
+      if (definite) await prefs.remove(key);
+      if (d is Map && d['refunded'] == true) {
+        try { await widget.onSuccess(); } catch (_) {}
+      }
+      widget.snack('❌ ${msg ?? 'Transfer failed.'}');
+    } catch (_) {
+      widget.snack('Transfer outcome is unknown. Do not start another transfer. Reference: $ref');
+    }
+  }
+
   bool _resolving = false;
   double _amount = 0;
   final _accCtrl = TextEditingController();
@@ -2561,7 +2925,7 @@ class _SendTabState extends State<_SendTab> {
       (c['id']   ?? '').toLowerCase().contains(_contactQuery.toLowerCase()))
     .toList();
 
-  @override void initState() { super.initState(); _fetchBanks(); _fetchBeneficiaries(); if (widget.prefilledUserId != null) { WidgetsBinding.instance.addPostFrameCallback((_) { setState(() => _selContact = widget.prefilledUserId); }); } }
+  @override void initState() { super.initState(); _fetchBanks(); _fetchBeneficiaries(); _abLoadDests(); if (widget.prefilledUserId != null) { WidgetsBinding.instance.addPostFrameCallback((_) { setState(() => _selContact = widget.prefilledUserId); }); } }
   @override
   void didUpdateWidget(covariant _SendTab old) {
     super.didUpdateWidget(old);
@@ -2926,6 +3290,7 @@ class _SendTabState extends State<_SendTab> {
   }
 
   Future<void> _fetchBanks() async {
+    if (_abCc != null) { await _abFetchBanks(); return; } // XAMEPAY_ABROAD_UI_V4
     setState(() { _loadingBanks = true; _bankError = false; });
     final cc = widget.region.countryCode;
     try {
@@ -3079,6 +3444,7 @@ class _SendTabState extends State<_SendTab> {
   );
 
   Future<void> _send() async {
+    if (_abCc != null) { await _abroadSend(); return; } // XAMEPAY_ABROAD_UI_V4
     if (_selBank == null) {
       widget.snack('Select a bank');
       return;
@@ -3401,7 +3767,7 @@ class _SendTabState extends State<_SendTab> {
       const Text('Send to contacts or any bank in the world',
           style: TextStyle(color: _kMuted, fontSize: 13)),
       const SizedBox(height: 16),
-      AbroadSendLink(serverUrl: widget.serverUrl, userId: widget.userId, currency: widget.currency, balance: widget.balance, pinEnabled: widget.pinEnabled, onSuccess: widget.onSuccess, snack: widget.snack), // XAMEPAY_ABROAD_UI_V2: always visible, above the tabs
+      _abroadCard(), // XAMEPAY_ABROAD_UI_V4
       Row(children: [
         _tog('To Contact',    !_bankMode && !_benefMode, () => setState(() { _bankMode = false; _benefMode = false; })),
         const SizedBox(width: 8),
@@ -3554,6 +3920,7 @@ class _SendTabState extends State<_SendTab> {
           ),
         ),
       ] else ...[
+        ..._abroadDropdown(), // XAMEPAY_ABROAD_UI_V4
         const Text('Select Bank',
             style: TextStyle(color: _kMuted,
                 fontSize: 13, fontWeight: FontWeight.w600)),
