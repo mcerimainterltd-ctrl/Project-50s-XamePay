@@ -2541,6 +2541,14 @@ class _SendTabState extends State<_SendTab> {
   // XAMEPAY_PAYOUT_NAME_V2: any non-naira payout takes a typed recipient name; the name check built for Nigerian accounts is skipped.
   bool get _isMomo => (_abCc != null || widget.currency != 'NGN') && _selBank != null;
   bool get _isMomoCode => _selBank != null && (_abCc != null ? _abType[_selBank!.code] == 'momo' : _kMomoCodes.contains(_selBank!.code.toUpperCase()));
+  // XAMEPAY_ABROAD_LOOKUP_V1: the server says which destination types can verify an account name.
+  bool get _abLookupOk {
+    if (_abCc == null || _selBank == null) return false;
+    final t = _abDest?['types'];
+    final k = _abType[_selBank!.code];
+    if (t is Map && k != null && t[k] is Map) return (t[k] as Map)['lookup'] == true;
+    return false;
+  }
   double? _quotedFee;
   // XAMEPAY_ABROAD_UI_V4: send to a bank or mobile-money account in another country from the To Bank screen.
   // Countries, bank lists, limits and the quote all come from the server, which gets them live from the payment provider.
@@ -3327,6 +3335,7 @@ class _SendTabState extends State<_SendTab> {
         if (d['success'] == true) {
           _resolved = '✅ ${d['account_name']}';
           _accName  = d['account_name'] ?? '';
+          _momoNameCtrl.text = _accName;
         } else { _resolved = '⚠️ Could not verify — proceed with caution'; }
       });
     } catch (_) {
@@ -3968,7 +3977,7 @@ class _SendTabState extends State<_SendTab> {
                   return InkWell(
                     onTap: () {
                       setState(() { _selBank = b; _srchCtrl.text = b.name; });
-                      if (_isMomo) { setState(() { _resolved = ''; _accName = _momoNameCtrl.text.trim(); }); } else if (_accNum.length >= 10) { _resolve(); }
+                      if (_isMomo && !_abLookupOk) { setState(() { _resolved = ''; _accName = _momoNameCtrl.text.trim(); }); } else if (_accNum.length >= 10) { _resolve(); }
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -3989,7 +3998,7 @@ class _SendTabState extends State<_SendTab> {
                 fontSize: 13, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         _xf(_accCtrl, 'Enter account number', TextInputType.number, (v) {
-          _accNum = v; if (v.length >= 10 && !_isMomo) _resolve();
+          _accNum = v; if (v.length >= 10 && (!_isMomo || _abLookupOk)) _resolve();
         }),
         if (_resolving)
           const Padding(padding: EdgeInsets.only(bottom: 8),
