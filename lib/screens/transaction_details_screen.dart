@@ -21,6 +21,8 @@ class TransactionDetailsScreen extends StatelessWidget {
   final double amount;
   final double fee;
   final double totalDebit;
+  final String receiveText; // XAMEPAY_RECEIVE_TEXT_V1: what the recipient gets, in the destination currency
+  final String paidText;
   final int? cashbackCoins;
   final String senderName;
   final String senderBankName;
@@ -48,6 +50,8 @@ class TransactionDetailsScreen extends StatelessWidget {
     required this.amount,
     required this.fee,
     required this.totalDebit,
+    this.receiveText = '',
+    this.paidText = '',
     this.cashbackCoins,
     required this.senderName,
     this.senderBankName = '',
@@ -116,7 +120,7 @@ class TransactionDetailsScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-              Text(fmt(amount),
+              Text(receiveText.isNotEmpty ? receiveText : fmt(amount),
                   style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800)),
               const SizedBox(height: 4),
               _LiveStatusBlock(live: liveStatus, ts: ts, fmtCompact: _fmtCompact, walletTransfer: walletTransfer),
@@ -156,6 +160,7 @@ class TransactionDetailsScreen extends StatelessWidget {
                   else if (bankName.isNotEmpty) bankName
                   else if (accountNumber.isNotEmpty) accountNumber,
                 ].join('\n')),
+              if (paidText.isNotEmpty) _detailRow('You paid', paidText),
               _detailRow('Transaction No.', txRef, copyable: true, context: context),
               _detailRow('Payment Method', paymentMethod),
               _detailRow('Transaction Date', _fmtTs(ts)),
@@ -264,7 +269,7 @@ class TransactionDetailsScreen extends StatelessWidget {
             const Text('Transaction Receipt', style: TextStyle(color: Color(0xFF888888), fontSize: 11)),
           ]),
           const SizedBox(height: 16),
-          Center(child: Text(fmt(amount),
+          Center(child: Text(receiveText.isNotEmpty ? receiveText : fmt(amount),
               style: const TextStyle(color: Color(0xFFFF6464), fontSize: 36, fontWeight: FontWeight.w800))),
           const Center(child: Text('Completed', style: TextStyle(color: _kTeal, fontSize: 14))),
           const SizedBox(height: 16),
@@ -277,6 +282,7 @@ class TransactionDetailsScreen extends StatelessWidget {
             'Recipient',
             [recipientName, if (bankName.isNotEmpty) bankName, if (accountNumber.isNotEmpty) accountNumber].join(' · '),
           ),
+          if (paidText.isNotEmpty) _receiptRow('You paid', paidText),
           _receiptRow('Date & Time', _fmtTs(ts)),
           _receiptRow('Reference', txRef),
           _receiptRow('Status', 'Completed'),

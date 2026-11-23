@@ -2871,6 +2871,8 @@ class _SendTabState extends State<_SendTab> {
             fee: (d['fee'] as num?)?.toDouble() ?? 0,
             totalDebit: (d['totalDebit'] as num?)?.toDouble() ?? cost,
             cashbackCoins: null,
+            receiveText: '${q['to']} ${(q['receive'] as num).toStringAsFixed(2)}',
+            paidText: '${q['from']} ${cost.toStringAsFixed(2)}',
             senderName: '',
             senderBankName: '',
             senderAccountNumber: '',
