@@ -18,6 +18,7 @@ import '../core/services/socket_service.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ── COLOURS ───────────────────────────────────────────────────────────────────
@@ -1947,6 +1948,22 @@ class _XamePayScreenState extends State<XamePayScreen>
                     Icon(Icons.chevron_right, color: Colors.white38),
                   ]),
                 ),
+              ),
+              // XAMEPAY_VERSION_LINE_V1: shows the installed version and build number
+              FutureBuilder<PackageInfo>(
+                future: PackageInfo.fromPlatform(),
+                builder: (_, snap) {
+                  final i = snap.data;
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 14),
+                    child: Center(
+                      child: Text(
+                        i == null ? '' : 'XamePay ${i.version} (build ${i.buildNumber})',
+                        style: const TextStyle(color: Colors.white38, fontSize: 11),
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
